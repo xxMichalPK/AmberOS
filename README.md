@@ -1,9 +1,9 @@
-### Introduction ###
+# Introduction #
 
 "NewOS" -- as for now -- is my most recent attempt on creating a fully working x86_64 Operating System. The goal of this project is to extend my knowledge of OS development as well as understanding the basics of communication between software and hardware components. The entire kernel and bootloader of "NewOS"
 will be written in C++ and Assembly Language, which will help me extend my knowledge of programming in those languages.
 
-### Steps & ToDo List ###
+# Steps & ToDo List #
 
 ## 1) Bootloader ##
 
@@ -15,33 +15,33 @@ will be written in C++ and Assembly Language, which will help me extend my knowl
 
 ## 2) Kernel ##
 
-# a) Basic interrupt handling #
+### a) Basic interrupt handling ###
 
 - Remapping the PIC
 - Setting up a basic handler for all the interrupts and IRQs
 
-# b) Simple standard library functions #
+### b) Simple standard library functions ###
 
 - printf
 - memcpy
 - memset
 - ...
 
-# c) Basic drivers #
+### c) Basic drivers ###
 
 - PS2 keyboard driver
 - RTC clock driver
 - IRQ1 timer driver
 - ATA PIO mode driver
 
-# d) Page Manager #
+### d) Page Manager ###
 
-# e) Memory manager #
+### e) Memory manager ###
 
 - Physical Memory Manager
 - Virtual Memory Manager
 
-# f) More complex functionalities #
+### f) More complex functionalities ###
 
 - Dynamic memory allocation + HEAP
 - PCI driver
