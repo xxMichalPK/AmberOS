@@ -1,2 +1,5 @@
 # Ignore all files in the notes folder
 notes/**.**
+
+# Ignore build directory
+build/**.**
