@@ -5,19 +5,12 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-OUTPUT_DIR = ./../../build/boot
-OUTPUT_FILES = mbr.bin
+OUTPUT_DIR = ./../../../build/boot
+OUTPUT_FILES = isoboot.bin
 
-FS_SPECIFIC_MAKEFILES = EXT2/Makefile FAT32/Makefile ISO9660/Makefile
-
-build: $(OUTPUT_FILES) $(FS_SPECIFIC_MAKEFILES)
-
-$(FS_SPECIFIC_MAKEFILES): FORCE
-	@$(MAKE) -C $(@D) --no-print-directory
+build: $(OUTPUT_FILES)
 
 %.bin: %.asm
 	@echo "[Compiling $^ --> $@]"
 	@mkdir -p $(OUTPUT_DIR)
 	@nasm -f bin $^ -o $(OUTPUT_DIR)/$@
-
-FORCE:

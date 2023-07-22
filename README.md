@@ -1,6 +1,6 @@
 # Introduction #
 
-"NewOS" -- as for now -- is my most recent attempt on creating a fully working x86_64 Operating System. The goal of this project is to extend my knowledge of OS development as well as understanding the basics of communication between software and hardware components. The entire kernel and bootloader of "NewOS"
+"AmberOS" is my most recent attempt on creating a fully working x86_64 Operating System. The goal of this project is to extend my knowledge of OS development as well as understanding the basics of communication between software and hardware components. The entire kernel and bootloader of "AmberOS"
 will be written in C++ and Assembly Language, which will help me extend my knowledge of programming in those languages.
 
 # Steps & ToDo List #

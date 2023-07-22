@@ -7,22 +7,29 @@ LEGACY_BOOT_DIR = boot/legacy/
 UEFI_BOOT_DIR = boot/UEFI/
 
 iso: build
+	@echo "[Preparing files for ISO creation...]"
 	mkdir -p iso
-	cp build/boot/* iso/
-	xorriso -as mkisofs -U -b isoboot.bin -no-emul-boot -hide isoboot.bin \
+	cp -r build/* iso/
+
+	@echo "[Creating ISO file...]"
+	xorriso -as mkisofs -U -b boot/isoboot.bin -no-emul-boot -hide boot/isoboot.bin \
 		-V "$(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH) Installer" -iso-level 3 -o $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso iso/
 
 build: build_legacy_boot
 
 build_legacy_boot:
-	@$(MAKE) -C $(LEGACY_BOOT_DIR)
+	@echo "[Building the legacy bootloader...]"
+	@$(MAKE) -C $(LEGACY_BOOT_DIR) --no-print-directory
 
 build_uefi_boot:
-	@$(MAKE) -C $(UEFI_BOOT_DIR)
+	@echo "[Building UEFI bootloader...]"
+	@$(MAKE) -C $(UEFI_BOOT_DIR) --no-print-directory
 
 run: iso
-	qemu-system-x86_64 -cdrom $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
+	@echo "[Running $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso...]"
+	@qemu-system-x86_64 -cdrom $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
 
 .PHONY:
 clean:
-	rm -rf build iso *.iso
+	@echo "[Cleaning build files...]"
+	@rm -rf build iso *.iso
