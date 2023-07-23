@@ -5,6 +5,9 @@
 ;  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 ; */
 
+; REMEMER:
+;   In ISO 9660 the LBA size is 2Kib (2048B) instead of 512B!
+
 %define PVD_ADDR 0x1000
 %define PATH_TABLE_SIZE_OFFSET 132		; The offset of the low endian path table size in the PVD
 %define PATH_TABLE_OFFSET 140			; The offset of the low endian path table LBA address in the PVD
@@ -27,40 +30,50 @@
 
 [BITS 16]
 [ORG 0x7C00]
-preboot:
-    mov [bootDrive], dl                 ; Set boot Drive
-    mov [partition], si                 ; Set the current partition
+; Since this is a ISO 9660 bootloader, make space for the Boot Information Table
+jmp short preboot
+times 8 - ($-$$) db 0
 
-    cli                                 ; Clear interrupts to avoid interrupts while 
-                                        ; changing important registers and setting stack
-    xor ax, ax                          ; Zero out ax register
-    mov ds, ax                          ; ds = 0
-    mov es, ax                          ; es = 0
-    mov ss, ax                          ; ss = 0
-    mov sp, 0x7c00                      ; stack pointer sp = 0x7c00 - our load address
-                                        ; stack grows down from the specified address
-    push ax                             ; set code segment cs = 0
-    push boot                           ; in case some BIOS sets us to 0x7c00:0000 instead of 0000:0x7c00
-    retf                                ; Far return to next instruction to ensure a normal CS:IP
+BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA 	resd 1
+BIT_BOOT_FILE_LBA					resd 1
+BIT_BOOT_FILE_LENGTH				resd 1
+BIT_CHECKSUM						resd 1
+BIT_RESERVED						resb 40
+
+preboot:
+	mov [bootDrive], dl                 ; Set boot Drive
+	mov [partition], si                 ; Set the current partition
+
+	cli                                 ; Clear interrupts to avoid interrupts while 
+										; changing important registers and setting stack
+	xor ax, ax                          ; Zero out ax register
+	mov ds, ax                          ; ds = 0
+	mov es, ax                          ; es = 0
+	mov ss, ax                          ; ss = 0
+	mov sp, 0x7c00                      ; stack pointer sp = 0x7c00 - our load address
+										; stack grows down from the specified address
+	push ax                             ; set code segment cs = 0
+	push boot                           ; in case some BIOS sets us to 0x7c0:0000 instead of 0000:0x7c00
+	retf                                ; Far return to next instruction to ensure a normal CS:IP
 
 boot:
-    mov ah, 0x00                    ; AH - 0 (change video mode)
-    mov al, 0x03                    ; AL - 3 (80x25 text mode)
-    int 0x10                        ; Set the mode
-    
-    mov si, startMSG
-    call print16
+	mov ah, 0x00                    ; AH - 0 (change video mode)
+	mov al, 0x03                    ; AL - 3 (80x25 text mode)
+	int 0x10                        ; Set the mode
 
-    call Check_Ext
+	mov si, startMSG
+	call print16
+
+	call Check_Ext
 
 	; Now when we know the disk extensions are supported
 	; We need to parse the ISO 9660 Primary Volume Descriptor (PVD)
-	mov eax, 16								; The PVD is at sector 16 (32KiB inside the image)
+	mov eax, [BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA]	; Get the PVD address from the Boot Information Table
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-    mov WORD [dap_sector_count], 1          ; Load 1 2KiB Long sector (The entire PVD)
+	mov WORD [dap_sector_count], 1          ; Load 1 2KiB Long sector (The entire PVD)
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
-    mov WORD [dap_offset], PVD_ADDR         ; Read to address defined as PVD_ADDR
-    call LBA_Read                           ; Call the function to read the disk
+	mov WORD [dap_offset], PVD_ADDR         ; Read to address defined as PVD_ADDR
+	call LBA_Read                           ; Call the function to read the disk
 
 	; Read the size of the Path Table into the variable to save it for later use
 	mov eax, DWORD [PVD_ADDR + PATH_TABLE_SIZE_OFFSET]	; Path Table size !IN BYTES!
@@ -75,35 +88,14 @@ boot:
 	mov eax, DWORD [PVD_ADDR + PATH_TABLE_OFFSET]	; Read the LBA address of the Path Table to eax
 	mov [PT_LBA], eax
 
-	; Now we need to read the Path Table
-	; The rest of the code is in the extended boot sector so jump there!
-	jmp 0x0000:extBoot
-
-RMODE_INCLUDE 'disk.inc'
-RMODE_INCLUDE 'print.inc'
-RMODE_INCLUDE 'strncmp.inc'
-
-bootDirName: db "boot"
-
-startMSG: db "AmberOS v0.1a (Tyro) Installer", 0x0A, 0x0D
-          db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
-          db "Loading Installer...", 0x0A, 0x0D, 0x00
-
-PT_LBA dd 0x00000000
-PT_Size dw 0x0000							; Page Table size !IN SECTORS!
-
-times 510 - ($-$$) db 0
-dw 0xAA55
-
-extBoot:
 	; Read the Path Table
 	mov eax, [PT_LBA]
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
 	mov cx, [PT_Size]
-    mov WORD [dap_sector_count], cx			; Load the number of sectors used by the Path Table
+	mov WORD [dap_sector_count], cx			; Load the number of sectors used by the Path Table
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
-    mov WORD [dap_offset], PATH_TABLE_ADDR  ; Read to address defined as PVD_ADDR
-    call LBA_Read                           ; Call the function to read the disk
+	mov WORD [dap_offset], PATH_TABLE_ADDR  ; Read to address defined as PATH_TABLE_ADDR
+	call LBA_Read                           ; Call the function to read the disk
 
 	; Read the Path Table and locate the boot directory
 	mov eax, PATH_TABLE_ADDR
@@ -151,7 +143,6 @@ extBoot:
 			add eax, 12
 			jmp locateBootDir
 
-
 			
 	dirFound:
 	pop eax
@@ -159,10 +150,10 @@ extBoot:
 	mov eax, DWORD [eax + PT_ENTRY_LBA_OFFSET]
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
 	mov cx, [PT_Size]
-    mov WORD [dap_sector_count], 1			; Load 1 sector of the directory
+	mov WORD [dap_sector_count], 1			; Load 1 sector of the directory
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
-    mov WORD [dap_offset], 0x5000			; Read to address defined as PVD_ADDR
-    call LBA_Read                           ; Call the function to read the disk
+	mov WORD [dap_offset], 0x5000			; Read destination
+	call LBA_Read                           ; Call the function to read the disk
 
 	mov ah, 0x0E
 	mov si, 0x5000
@@ -180,5 +171,19 @@ extBoot:
 
 	jmp $
 
+RMODE_INCLUDE 'disk.inc'
+RMODE_INCLUDE 'print.inc'
+RMODE_INCLUDE 'strncmp.inc'
 
-times 4096 - ($-$$) db 0
+bootDirName: db "boot"
+
+startMSG: db "AmberOS v0.1a (Tyro) Installer", 0x0A, 0x0D
+		  db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
+		  db "Loading Installer...", 0x0A, 0x0D, 0x00
+
+PT_LBA dd 0x00000000
+PT_Size dw 0x0000							; Page Table size !IN SECTORS!
+
+; REMEMBER:
+;   The maximum size of the iso bootloader can not exceed 0x8400b ~ 33KiB
+times 2048 - ($-$$) db 0

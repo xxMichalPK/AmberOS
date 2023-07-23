@@ -71,7 +71,7 @@ LowStart:
         
             .BootPartFound:
                 mov WORD [LastBootPart], bx    ; Save First Bootable Partition Offset
-            
+
             .ReadVBR:
                 mov bx, WORD [LastBootPart]
                 mov ebx, DWORD [bx + 8]         ; Start LBA of Active Partition
@@ -80,7 +80,7 @@ LowStart:
                 mov bx, 0x7C00
                 mov word [dap_offset], 0x7C00
                 call LBA_Read
-            
+
             .jumpToVBR:
                 cmp WORD [0x7DFE], 0xAA55       ; Check Boot Signature
                 jne noSIG                       ; Error if not Boot Signature
@@ -89,7 +89,7 @@ LowStart:
                 mov si, WORD [LastBootPart]     ; Set DS:SI to Partition Table Entry
                 mov dl, BYTE [bootDrive]        ; Set DL to Drive Number
                 jmp 0:0x7C00                    ; Jump To VBR (Bootloader)
-            
+
             .forceOtherVBR:
                 mov ebx, DWORD [bx + 8]         ; Start LBA of Active Partition
                 mov [dap_lba_lo], ebx
@@ -106,18 +106,18 @@ LowStart:
 
 ; Check if our disk supports int 13h extensions for reading the disk
 Check_Ext:
-	xor ax, ax						    ; Zero AX
-	mov BYTE [EXT13h], al			    ; Zero out flag
+    xor ax, ax						    ; Zero AX
+    mov BYTE [EXT13h], al			    ; Zero out flag
     mov dl, BYTE [bootDrive]	        ; DL = Disk Number
-	mov ah, 0x41					    ; INT 13h AH=41h: Check Extensions Present
-	mov bx, 0x55AA					    ; Magic value(?)
-	int 0x13						    ; Check extensions
-	jc .done						    ; Carry flag set? No extensions
-	test cx, 1						    ; Does it say we can use packet addressing?
-	jz .done						    ; Nope, No extensions
-	mov ax, 0xFF					    ; If we reached this point extensions are usable
-	mov BYTE [EXT13h], al			    ; Set flag
-    
+    mov ah, 0x41					    ; INT 13h AH=41h: Check Extensions Present
+    mov bx, 0x55AA					    ; Magic value(?)
+    int 0x13						    ; Check extensions
+    jc .done						    ; Carry flag set? No extensions
+    test cx, 1						    ; Does it say we can use packet addressing?
+    jz .done						    ; Nope, No extensions
+    mov ax, 0xFF					    ; If we reached this point extensions are usable
+    mov BYTE [EXT13h], al			    ; Set flag
+
     .done:
         mov dl, BYTE [EXT13h]           ; Set dl to flag
         or dl, dl                       ; Check if dl is 1 (if ext 13h is supported)
@@ -126,15 +126,15 @@ Check_Ext:
         ret								; Else Return
 
 LBA_Read:
-	pusha
-	mov dl, [bootDrive]
-	mov ah, 0x42                        ; EXT Read Sectors
-	mov si, dap
-	int 0x13                            ; Read Sectors
-	jc .error
-	.success:
-		popa
-		ret
+    pusha
+    mov dl, [bootDrive]
+    mov ah, 0x42                        ; EXT Read Sectors
+    mov si, dap
+    int 0x13                            ; Read Sectors
+    jc .error
+    .success:
+        popa
+        ret
     .error:
         mov si, diskReadError
         call print
@@ -163,7 +163,7 @@ print:
         je .done
         int 0x10
         jmp .loop
-    
+
     .done:
         ret
 
