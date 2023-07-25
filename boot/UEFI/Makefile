@@ -7,8 +7,9 @@
 
 ARCH            = $(shell uname -m | sed s,i[3456789]86,ia32,)
 
+AMBER_INC		= ../../include/
 EFIINC          = /usr/include/efi
-EFIINCS         = -I$(EFIINC) -I$(EFIINC)/$(ARCH) -I$(EFIINC)/protocol
+EFIINCS         = -I$(EFIINC) -I$(EFIINC)/$(ARCH) -I$(EFIINC)/protocol -I$(AMBER_INC)
 EFILIB          = /usr/lib
 EFI_CRT_OBJS    = $(EFILIB)/crt0-efi-$(ARCH).o
 EFI_LDS         = $(EFILIB)/elf_$(ARCH)_efi.lds

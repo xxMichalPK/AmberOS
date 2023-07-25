@@ -34,8 +34,6 @@ ISO: build_legacy_boot build_uefi_boot
 		-eltorito-alt-boot \
 		-e boot/efiboot.img \
 		-no-emul-boot -isohybrid-gpt-basdat \
-		-hide boot/efiboot.img \
-		-hide boot/isoboot.img \
 		-V "$(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH) Installer" \
 		-iso-level 4 \
 		-o $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso \
@@ -56,7 +54,7 @@ run_legacy: ISO
 run_UEFI: ISO
 	@echo "[Running $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso...]"
 	@qemu-system-x86_64 -cpu qemu64 -drive if=pflash,format=raw,unit=0,file="./tools/OVMFbin/OVMF_CODE-pure-efi.fd",readonly=on \
-		-drive if=pflash,format=raw,unit=1,file="./tools/OVMFbin/OVMF_VARS-pure-efi.fd" -cdrom $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
+		-drive if=pflash,format=raw,unit=1,file="./tools/OVMFbin/OVMF_VARS-pure-efi.fd" -hda $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
 
 .PHONY:
 clean:

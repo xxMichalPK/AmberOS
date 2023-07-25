@@ -42,7 +42,6 @@ BIT_RESERVED						resb 40
 
 preboot:
 	mov [bootDrive], dl                 ; Set boot Drive
-	mov [partition], si                 ; Set the current partition
 
 	cli                                 ; Clear interrupts to avoid interrupts while 
 										; changing important registers and setting stack
@@ -81,8 +80,12 @@ boot:
 	xor edx, edx
 	mov ebx, 2048							; !!! The sectors on an ISO drive are 2048 Bytes in size !!!
 	div ebx
-	inc ax									; The minimum size is 1 sector
-	mov [PT_Size], ax
+	inc eax									; The minimum size is 1 sector
+	mov [PT_SECTOR_COUNT], ax
+	; Save also the size rounded up to the next 2048B
+	xor edx, edx
+	mul ebx
+	mov [PT_ROUNDED_SIZE], eax
 
 	; Read the address of the Path Table LBA address and save it for later use
 	mov eax, DWORD [PVD_ADDR + PATH_TABLE_OFFSET]	; Read the LBA address of the Path Table to eax
@@ -91,7 +94,7 @@ boot:
 	; Read the Path Table
 	mov eax, [PT_LBA]
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov cx, [PT_Size]
+	mov cx, [PT_SECTOR_COUNT]
 	mov WORD [dap_sector_count], cx			; Load the number of sectors used by the Path Table
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
 	mov WORD [dap_offset], PATH_TABLE_ADDR  ; Read to address defined as PATH_TABLE_ADDR
@@ -128,7 +131,6 @@ boot:
 			add eax, 9
 			jmp locateBootDir
 
-
 		.cmpName:
 			push eax
 			add eax, PT_ENTRY_NAME_OFFSET
@@ -137,19 +139,18 @@ boot:
 			mov cx, 4
 			call strncmp16
 			cmp ax, 1
-			je dirFound
+			je .dirFound
 
 			pop eax
 			add eax, 12
 			jmp locateBootDir
 
-			
-	dirFound:
-	pop eax
+		.dirFound:
+			pop eax
 
 	mov eax, DWORD [eax + PT_ENTRY_LBA_OFFSET]
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov cx, [PT_Size]
+	mov cx, [PT_SECTOR_COUNT]
 	mov WORD [dap_sector_count], 1			; Load 1 sector of the directory
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
 	mov WORD [dap_offset], 0x5000			; Read destination
@@ -157,7 +158,7 @@ boot:
 
 	mov ah, 0x0E
 	mov si, 0x5000
-	mov cx, 512
+	mov cx, 1024
 	.lo:
 		lodsb
 		cmp cx, 0
@@ -177,13 +178,16 @@ RMODE_INCLUDE 'strncmp.inc'
 
 bootDirName: db "boot"
 
-startMSG: db "AmberOS v0.1a (Tyro) Installer", 0x0A, 0x0D
+startMSG: db "AmberOS v0.1a (Tyro) Live", 0x0A, 0x0D
 		  db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
-		  db "Loading Installer...", 0x0A, 0x0D, 0x00
+		  db "Loading AmberOS...", 0x0A, 0x0D, 0x00
 
-PT_LBA dd 0x00000000
-PT_Size dw 0x0000							; Page Table size !IN SECTORS!
+PT_LBA 			dd 0x00000000
+PT_ROUNDED_SIZE	dd 0x00000000
+PT_SECTOR_COUNT dw 0x0000							; Page Table size !IN SECTORS!
 
 ; REMEMBER:
 ;   The maximum size of the iso bootloader can not exceed 0x8400b ~ 33KiB
+;   If the size of 2KiB is not sufficient, extend it in the makefile:
+;   -boot-load-size (next multiple of 4) and add 2KiB to the times command
 times 2048 - ($-$$) db 0
