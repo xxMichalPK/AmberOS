@@ -21,7 +21,7 @@ ifeq ($(ARCH),x86_64)
   CFLAGS += -DEFI_FUNCTION_WRAPPER
 endif
 
-OUTPUT_DIR = ./../../build/boot/EFI/BOOT
+OUTPUT_DIR = ./../../build/AmberOS/EFI/BOOT
 OUTPUT_FILE = BOOTX64.EFI
 
 build: $(OUTPUT_FILE)

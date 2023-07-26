@@ -5,7 +5,7 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-OUTPUT_DIR = ./../../build/boot
+OUTPUT_DIR = ./../../build/AmberOS
 OUTPUT_FILES = mbr.bin
 
 FS_SPECIFIC_MAKEFILES = EXT2/Makefile FAT32/Makefile ISO9660/Makefile

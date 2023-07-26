@@ -19,18 +19,19 @@ ISO: build_legacy_boot build_uefi_boot
 	@cp -r build/* iso/
 
 	@echo "[Creating EFI boot image...]"
-	@dd if=/dev/zero of=iso/boot/efiboot.img bs=512 count=93750
-	@mformat -i iso/boot/efiboot.img -F ::
+	@dd if=/dev/zero of=iso/boot/efiboot.img bs=512 count=10240
+	@mformat -i iso/boot/efiboot.img ::
 	@mmd -i iso/boot/efiboot.img ::/EFI
 	@mmd -i iso/boot/efiboot.img ::/EFI/BOOT
-	@mcopy -i iso/boot/efiboot.img iso/boot/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT
+	@mcopy -i iso/boot/efiboot.img iso/AmberOS/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT
 	@mcopy -i iso/boot/efiboot.img startup.nsh ::
 
 	@echo "[Creating ISO file...]"
 	@xorriso -as mkisofs -U \
+		-c boot/boot.cat \
 		-b boot/isoboot.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
-		-isohybrid-mbr ./iso/boot/mbr.bin \
+		-isohybrid-mbr ./iso/AmberOS/mbr.bin \
 		-eltorito-alt-boot \
 		-e boot/efiboot.img \
 		-no-emul-boot -isohybrid-gpt-basdat \
