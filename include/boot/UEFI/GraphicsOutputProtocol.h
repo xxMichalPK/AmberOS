@@ -49,4 +49,12 @@ EFI_STATUS SetVideoMode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN hRes, UINTN vRe
     return EFI_SUCCESS;
 }
 
+EFI_STATUS DrawRect(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN _x, UINTN _y, UINTN _w, UINTN _h, UINT32 _color) {
+    for (UINTN y = _y; y < _y + _h; y++) {
+        for (UINTN x = _x; x < _x + _w; x++) {
+            *((UINT32*)(gop->Mode->FrameBufferBase + 4 * gop->Mode->Info->PixelsPerScanLine * y + 4 * x)) = _color;
+        }
+    }
+}
+
 #endif
