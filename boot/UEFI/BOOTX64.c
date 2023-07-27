@@ -12,6 +12,7 @@
 #include <boot/UEFI/ISO9660.h>
 #include <boot/UEFI/GraphicsOutputProtocol.h>
 #include <boot/UEFI/BMP.h>
+#include <boot/UEFI/timer.h>
 
 EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     EFI_STATUS status;
@@ -69,6 +70,15 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         Print(L"Failed to draw logo: %r\n\r", status);
         return status;
     }
+
+    Print(L"Waiting...\n\r");
+    status = sleep_s(5);
+    if (EFI_ERROR(status)) {
+        Print(L"Sleep failed to execute: %r\n\r", status);
+        return status;
+    }
+
+    Print(L"Continuing...");
 
     for (;;);
 
