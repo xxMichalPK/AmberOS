@@ -11,7 +11,7 @@ typedef struct MBR_Partition {
     UINT8 lastSectorCHS[3];
     UINT8 startLBA[4];
     UINT8 sectorsCount[4];
-} MBR_Partition_t;
+} __attribute__((packed)) MBR_Partition_t;
 
 typedef struct AmberOS_MBR {
     UINT8 start[2];
@@ -21,6 +21,6 @@ typedef struct AmberOS_MBR {
     UINT8 reserved[2];
     MBR_Partition_t partitions[4];
     UINT8 bootSig[2];
-} AmberOS_MBR_t;
+} __attribute__((packed)) AmberOS_MBR_t;
 
 #endif

@@ -13,7 +13,7 @@ typedef struct ISO_Volume_Descriptor_Header {
     UINT8 type;
     UINT8 identifier[5];
     UINT8 version;
-} ISO_Volume_Descriptor_Header_t;
+} __attribute__((packed)) ISO_Volume_Descriptor_Header_t;
 
 typedef struct ISO_Primary_Volume_Descriptor {
     ISO_Volume_Descriptor_Header_t header;
@@ -47,7 +47,7 @@ typedef struct ISO_Primary_Volume_Descriptor {
     UINT8 unused4;
     UINT8 applicationUsed[512];
     UINT8 reserved[653];
-} ISO_Primary_Volume_Descriptor_t;
+} __attribute__((packed)) ISO_Primary_Volume_Descriptor_t;
 
 typedef struct ISO_PathTableEntry {
     UINT8 nameLength;
@@ -55,7 +55,7 @@ typedef struct ISO_PathTableEntry {
     UINT32 extentLBA;
     UINT16 parentDirNumber;
     UINT8 *dirName;
-} ISO_PathTableEntry_t;
+} __attribute__((packed)) ISO_PathTableEntry_t;
 
 typedef struct ISO_DirectoryEntry {
     UINT8 recordLength;
@@ -70,7 +70,7 @@ typedef struct ISO_DirectoryEntry {
     UINT8 nameLength;
     UINT8 *fileName;
     UINT8 *systemUse;
-} ISO_DirectoryEntry_t;
+} __attribute__((packed)) ISO_DirectoryEntry_t;
 
 static ISO_Primary_Volume_Descriptor_t *pvd = NULL;
 
@@ -308,7 +308,7 @@ static EFI_STATUS ReadFile(EFI_BLOCK_IO_PROTOCOL *diskIO, char *path, UINTN *fil
     for (UINTN fIdx = 0; fIdx < numFilesInDirectory[dirCount - 1]; fIdx++) {
         if (memcmp(directories[dirCount - 1][fIdx].fileName, path, dirNameLenghts[dirCount]) == 0 &&
             directories[dirCount - 1][fIdx].nameLength == dirNameLenghts[dirCount]) {
-            status = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, ((directories[dirCount - 1][fIdx].fileSize / 512) + 1) * 512, (void**)&(*dataBuffer));
+            status = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, ((directories[dirCount - 1][fIdx].fileSize / 512) + 1) * 512, dataBuffer);
             if (EFI_ERROR(status)) {
                 uefi_call_wrapper(BS->FreePool, 1, dirNameLenghts);
                 uefi_call_wrapper(BS->FreePool, 1, numFilesInDirectory);

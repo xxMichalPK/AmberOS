@@ -17,6 +17,7 @@ ISO: build_legacy_boot build_uefi_boot
 	@echo "[Preparing files for ISO creation...]"
 	@mkdir -p iso
 	@cp -r build/* iso/
+	@cp -r branding/* iso/AmberOS/
 
 	@echo "[Creating EFI boot image...]"
 	@dd if=/dev/zero of=iso/boot/efiboot.img bs=512 count=10240

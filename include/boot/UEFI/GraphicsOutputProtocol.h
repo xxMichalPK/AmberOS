@@ -2,7 +2,7 @@
 #define __GRAPHICS_OUTPUT_PROTOCOL_H__
 
 #include <efi/efi.h>
-#include <efi/efiapi.h>
+#include <efi/efilib.h>
 
 EFI_STATUS InitializeGraphics(EFI_HANDLE ImageHandle, EFI_GRAPHICS_OUTPUT_PROTOCOL **gop) {
     EFI_STATUS status;

@@ -11,6 +11,7 @@
 #include <boot/UEFI/BootDevice.h>
 #include <boot/UEFI/ISO9660.h>
 #include <boot/UEFI/GraphicsOutputProtocol.h>
+#include <boot/UEFI/BMP.h>
 
 EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     EFI_STATUS status;
@@ -26,6 +27,9 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         Print(L"Failed to initialize graphics: %r\n\r", status);
         return status;
     }
+
+    status = SetVideoMode(graphics, 1920, 1080, PixelBlueGreenRedReserved8BitPerColor);
+    if (EFI_ERROR(status)) return status;
 
     status = GetBootDeviceHandle(&bootDeviceHandle);
     if (EFI_ERROR(status) || !bootDeviceHandle) {
@@ -47,16 +51,23 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
 
     UINT8 *fileBuffer;
     UINTN fileSize;
-    status = ReadFile(bootDeviceIO, "/boot/isoboot.bin", &fileSize, (void**)&fileBuffer);
+    status = ReadFile(bootDeviceIO, "/AmberOS/LoadingLogo.bmp", &fileSize, (void**)&fileBuffer);
     if (EFI_ERROR(status)) {
         Print(L"Failed to read file: %r\n\r", status);
         return status;
     }
 
-    Print(L"Loaded file with the size of: %dB\n\r", fileSize);
-    Print(L"Data: ");
-    for (UINTN i = 0; i < fileSize; i++) {
-        Print(L"%c", fileBuffer[i]);
+    UINT32 logoWidth, logoHeight;
+    status = GetBMPSize(fileBuffer, &logoWidth, &logoHeight);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to get logo size: %r\n\r", status);
+        return status;
+    }
+
+    status = DrawBMP(graphics, fileBuffer, (graphics->Mode->Info->HorizontalResolution / 2) - (logoWidth / 2), (graphics->Mode->Info->VerticalResolution / 2) - (logoHeight / 2));
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to draw logo: %r\n\r", status);
+        return status;
     }
 
     for (;;);
