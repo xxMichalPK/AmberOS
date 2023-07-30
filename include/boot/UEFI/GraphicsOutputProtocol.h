@@ -55,6 +55,7 @@ EFI_STATUS DrawRect(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN _x, UINTN _y, UINTN
             *((UINT32*)(gop->Mode->FrameBufferBase + 4 * gop->Mode->Info->PixelsPerScanLine * y + 4 * x)) = _color;
         }
     }
+    return EFI_SUCCESS;
 }
 
 #endif

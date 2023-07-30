@@ -93,8 +93,6 @@ static EFI_STATUS DrawBMP(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINT8 *bmpData, UIN
     UINT32 imageWidth = 0;
     UINT32 imageHeight = 0;
     UINT16 imageBPP = 0;
-    UINT32 imageSize = 0;
-
     UINT32 dibLength = bmpData[14] | (bmpData[15] << 8) | (bmpData[16] << 16) | (bmpData[17] << 24);
     switch (dibLength) {
         case BITMAPCOREHEADER: {
@@ -102,7 +100,6 @@ static EFI_STATUS DrawBMP(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINT8 *bmpData, UIN
             imageWidth = dibHeader->width;
             imageHeight = dibHeader->height;
             imageBPP = dibHeader->bpp;
-            imageSize = header->fileSize - header->dataOffset;
             break;
         }
         case BITMAPINFOHEADER:
@@ -111,7 +108,6 @@ static EFI_STATUS DrawBMP(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINT8 *bmpData, UIN
             imageWidth = dibHeader->width;
             imageHeight = dibHeader->height;
             imageBPP = dibHeader->bpp;
-            imageSize = dibHeader->imageSize;
             if (dibHeader->compression != BI_RGB) return EFI_UNSUPPORTED;
             break;
         }
