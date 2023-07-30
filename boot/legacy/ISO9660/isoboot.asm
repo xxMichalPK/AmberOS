@@ -34,11 +34,11 @@
 jmp short preboot
 times 8 - ($-$$) db 0
 
-BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA 	resd 1
-BIT_BOOT_FILE_LBA					resd 1
-BIT_BOOT_FILE_LENGTH				resd 1
-BIT_CHECKSUM						resd 1
-BIT_RESERVED						resb 40
+BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA 	dd 0x00
+BIT_BOOT_FILE_LBA					dd 0x00
+BIT_BOOT_FILE_LENGTH				dd 0x00
+BIT_CHECKSUM						dd 0x00
+BIT_RESERVED						times 40 db 0x00
 
 preboot:
 	mov [bootDrive], dl                 ; Set boot Drive
