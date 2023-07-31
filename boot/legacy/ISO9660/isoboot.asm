@@ -8,18 +8,6 @@
 ; REMEMER:
 ;   In ISO 9660 the LBA size is 2Kib (2048B) instead of 512B!
 
-%define PVD_ADDR 0x1000
-%define PATH_TABLE_SIZE_OFFSET 132		; The offset of the low endian path table size in the PVD
-%define PATH_TABLE_OFFSET 140			; The offset of the low endian path table LBA address in the PVD
-
-%define PATH_TABLE_ADDR PVD_ADDR + 0x800; Load right after the PVD
-
-%define PT_ENTRY_NAME_LEN_OFFSET 0
-%define PT_ENTRY_EARL_OFFSET 1
-%define PT_ENTRY_LBA_OFFSET 2
-%define PT_ENTRY_PARENT_DIR_NUM_OFFSET 6
-%define PT_ENTRY_NAME_OFFSET 8
-
 ; Macro for faster include
 %macro RMODE_INCLUDE 1
 	%define INC_DIR '../../../include/boot/legacy/rmode/'
@@ -27,6 +15,14 @@
 	%strcat INC_PATH INC_DIR, INC_FILE
 	%include INC_PATH
 %endmacro
+
+
+%define PVD_ADDR 0x1000
+%define ROOT_DIRECTORY_ENTRY PVD_ADDR + 156
+
+%define ROOT_DIRECTORY_ADDRESS PVD_ADDR + 0x800
+
+; Assuming the isoboot is 
 
 [BITS 16]
 [ORG 0x7C00]
@@ -69,122 +65,115 @@ boot:
 	; We need to parse the ISO 9660 Primary Volume Descriptor (PVD)
 	mov eax, [BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA]	; Get the PVD address from the Boot Information Table
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov WORD [dap_sector_count], 1          ; Load 1 2KiB Long sector (The entire PVD)
+	mov WORD [dap_sector_count], 1          ; Load 1, 2KiB Long sector (The entire PVD)
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
 	mov WORD [dap_offset], PVD_ADDR         ; Read to address defined as PVD_ADDR
 	call LBA_Read                           ; Call the function to read the disk
 
-	; Read the size of the Path Table into the variable to save it for later use
-	mov eax, DWORD [PVD_ADDR + PATH_TABLE_SIZE_OFFSET]	; Path Table size !IN BYTES!
-	;   Convert it to number of sectors
-	xor edx, edx
-	mov ebx, 2048							; !!! The sectors on an ISO drive are 2048 Bytes in size !!!
-	div ebx
-	inc eax									; The minimum size is 1 sector
-	mov [PT_SECTOR_COUNT], ax
-	; Save also the size rounded up to the next 2048B
-	xor edx, edx
-	mul ebx
-	mov [PT_ROUNDED_SIZE], eax
-
-	; Read the address of the Path Table LBA address and save it for later use
-	mov eax, DWORD [PVD_ADDR + PATH_TABLE_OFFSET]	; Read the LBA address of the Path Table to eax
-	mov [PT_LBA], eax
-
-	; Read the Path Table
-	mov eax, [PT_LBA]
-	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov cx, [PT_SECTOR_COUNT]
-	mov WORD [dap_sector_count], cx			; Load the number of sectors used by the Path Table
-	mov WORD [dap_segment], 0               ; Read to current segment (0)
-	mov WORD [dap_offset], PATH_TABLE_ADDR  ; Read to address defined as PATH_TABLE_ADDR
+    ; Read the root directory
+    mov eax, DWORD [ROOT_DIRECTORY_ENTRY + 2]   ; Root directory LBA address
+    mov DWORD [dap_lba_lo], eax             ; Set the LBA address
+    mov eax, DWORD [ROOT_DIRECTORY_ENTRY + 10]  ; Root directory size (in Bytes), convert it to number of sectors
+    push eax                                ; Save the original size
+    mov ebx, 2048
+    xor edx, edx
+    div ebx
+    cmp edx, 0
+    je .sizeOK
+    inc ax
+    .sizeOK:
+    push ax                                 ; Save this for later
+    mov WORD [dap_sector_count], ax         ; The sector size is now in ax
+    mov WORD [dap_segment], 0               ; Read to current segment (0)
+	mov WORD [dap_offset], ROOT_DIRECTORY_ADDRESS   ; Read to address defined as PVD_ADDR
 	call LBA_Read                           ; Call the function to read the disk
 
-	; Read the Path Table and locate the boot directory
-	mov eax, PATH_TABLE_ADDR
-	locateBootDir:	
-		cmp	BYTE [eax], 4
-		je .cmpName
+    ; Load the 'boot' directory
+    ; Get the size of root directory and round up to the next 2048B
+    pop ax
+    xor edx, edx
+    mov bx, 2048
+    mul bx
+    ; Load the boot directory right after the root directory
+    mov ebx, ROOT_DIRECTORY_ADDRESS
+    add ebx, eax
+    pop eax
+    push ebx                                ; Save the boot directory address
+    mov ecx, eax                            ; The original size of the directory
+    mov si, bootDirName
+    mov dl, [bootDirName.len]
+    mov eax, ROOT_DIRECTORY_ADDRESS
+    call loadISODirectoryEntry              ; It returns the size of loaded data (0 if failed)
+    cmp ax, 0
+    je loadFailed
 
-		push eax
-		xor edx, edx
-		xor ebx, ebx
-		mov bl, BYTE [eax]
-		xchg eax, ebx
-		mov ebx, 2
-		div ebx
-		cmp edx, 0
-		jne .addOne
+    ; Load the 2'nd stage to 0x10000 (cs: 0x1000, ip: 0x0000)
+    mov ecx, eax
+    pop ebx
+    mov eax, ebx
+    mov bx, 0x1000
+    mov es, bx
+    mov ebx, 0x0000
+    mov si, loaderName
+    mov dl, [loaderName.len]
+    call loadISODirectoryEntry              ; It returns the size of loaded data (0 if failed)
+    cmp ax, 0
+    je loadFailed
 
-		pop eax
-		xor ebx, ebx
-		mov bl, BYTE [eax]
-		add eax, ebx
-		add eax, 8
-		jmp locateBootDir
+    ; Now we can jump to the C code in bootldr.bin file!
+    ; But first change to 32bit mode
+    call EnableA20
+    call LoadGDT
+    ; Enable protected mode
+    cli
+    mov eax, cr0
+    or al, 1
+    mov cr0, eax
 
-		.addOne:
-			pop eax
-			xor ebx, ebx
-			mov bl, BYTE [eax]
-			add eax, ebx
-			add eax, 9
-			jmp locateBootDir
-
-		.cmpName:
-			push eax
-			add eax, PT_ENTRY_NAME_OFFSET
-			mov si, ax
-			mov di, bootDirName
-			mov cx, 4
-			call strncmp16
-			cmp ax, 1
-			je .dirFound
-
-			pop eax
-			add eax, 12
-			jmp locateBootDir
-
-		.dirFound:
-			pop eax
-
-	mov eax, DWORD [eax + PT_ENTRY_LBA_OFFSET]
-	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov cx, [PT_SECTOR_COUNT]
-	mov WORD [dap_sector_count], 1			; Load 1 sector of the directory
-	mov WORD [dap_segment], 0               ; Read to current segment (0)
-	mov WORD [dap_offset], 0x5000			; Read destination
-	call LBA_Read                           ; Call the function to read the disk
-
-	mov ah, 0x0E
-	mov si, 0x5000
-	mov cx, 1024
-	.lo:
-		lodsb
-		cmp cx, 0
-		je .done
-		int 0x10
-		dec cx
-		jmp .lo
-
-		.done:
-
+    jmp CODE32_SEG:JumpToLoader
 
 	jmp $
+
+loadFailed:
+    mov si, loadFailedMessage
+    call print16
+    jmp $
 
 RMODE_INCLUDE 'disk.inc'
 RMODE_INCLUDE 'print.inc'
 RMODE_INCLUDE 'strncmp.inc'
+RMODE_INCLUDE 'ISO9660.inc'
+RMODE_INCLUDE 'gdt.inc'
+RMODE_INCLUDE 'a20.inc'
 
 bootDirName: db "boot"
+    .len: db 4
+loaderName: db "bootldr.bin"
+    .len: db 11
 
 startMSG: db "AmberOS v0.1a (Tyro) Live", 0x0A, 0x0D
 		  db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
 		  db "Loading AmberOS...", 0x0A, 0x0D, 0x00
 
-PT_LBA 			dd 0x00000000
-PT_ROUNDED_SIZE	dd 0x00000000
-PT_SECTOR_COUNT dw 0x0000							; Page Table size !IN SECTORS!
+loadFailedMessage: db 0x0A, 0x0D, "Couldn't load one of the core system components!", 0x0A, 0x0D
+                   db "Please reboot your PC...", 0x0A, 0x0D, 0x00
+
+
+[BITS 32]
+JumpToLoader:
+    mov ax, DATA32_SEG
+    mov ds, ax
+    mov ss, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov ebp, 0x80000    ; Set stack above loader and below the EBDA
+    mov esp, ebp        ; Set the stack
+    
+    jmp 0x10000         ; Jump to the loader
+
+    jmp $
 
 ; REMEMBER:
 ;   The maximum size of the iso bootloader can not exceed 0x8400b ~ 33KiB
