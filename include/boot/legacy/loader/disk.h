@@ -24,7 +24,7 @@ static int ReadSectors(uint8_t driveNumber, uint64_t lba, uint16_t numSectors, u
     dap.lba_lo = lba & 0xFFFFFFFF;
     dap.lba_hi = (lba >> 32) & 0xFFFFFFFF;
     
-    rmode_regs_t regs;
+    rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
     regs.ds = RMODE_SEGMENT(&_loadAddr);
     regs.es = RMODE_SEGMENT(&_loadAddr);
@@ -33,7 +33,10 @@ static int ReadSectors(uint8_t driveNumber, uint64_t lba, uint16_t numSectors, u
     regs.edx = driveNumber;
     regs.eax = 0x4200;
     regs.esi = RMODE_OFFSET(&dap);
-    bios_call_wrapper(0x13, &regs);
+    bios_call_wrapper(0x13, &regs, &outRegs);
+    if ((outRegs.eax & 0xFFFF) != 0) return -1;
+    
+    return 0;
 }
 
 #endif

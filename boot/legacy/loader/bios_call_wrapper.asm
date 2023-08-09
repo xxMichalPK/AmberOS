@@ -11,11 +11,13 @@ section .text
 %define DATA16_SEG 0x20
 %define TMP_STACK_ADDR 0xF000
 
+%define REGS_SIZE 32
+
 ; typedef struct __attribute__((packed)) {
 ;     uint32_t edi, esi, ebx, edx, ecx, eax;
 ;     uint16_t gs, fs, es, ds;
 ; } rmode_regs_t;
-; from C: extern void bios_call_wrapper(uint8_t interruptNumber, rmode_regs_t *regs);
+; from C: extern void bios_call_wrapper(uint8_t interruptNumber, rmode_regs_t *regs, rmode_regs_t *outRegs);
 bios_call_wrapper:
     cli                     ; Clear the interrupts
     pushad                  ; Save everything
@@ -29,7 +31,7 @@ bios_call_wrapper:
 
     mov esi, [esi]          ; The registers are here
     mov edi, stack16
-    mov ecx, 32
+    mov ecx, REGS_SIZE
     rep movsb
     
     jmp CODE16_SEG:prot16   ; Jump to 16bit protected mode
@@ -60,7 +62,7 @@ prot16:
 
 ; We will land right here in the real mode 16bit code section!
 rmode:
-    mov ax, 0x1000
+    mov ax, BASE_SEGMENT
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -92,8 +94,22 @@ rmode:
     db 0xCD                 ; Code of an interrupt instruction
 ic: db 0x00                 ; Interrupt number (code) passed to the function
 
-    ; Return to 32bit mode
+    ; Save all the returned registers
     cli
+    ; Start with segments
+    push ds
+    push es
+    push fs
+    push gs
+    ; And then registers
+    push eax
+    push ecx
+    push edx
+    push ebx
+    push esi
+    push edi
+
+    ; Return to 32bit mode
     mov eax, cr0
     or al, 1
     mov cr0, eax
@@ -120,6 +136,13 @@ returnTo32bit:
     mov esp, [stack32.esp]
     popf
     popad
+
+    ; Return the registers to the output registers struct
+    mov esi, stack16
+    lea edi, [esp + 0x0C]   ; Get the output struct
+    mov edi, [edi]
+    mov ecx, REGS_SIZE
+    rep movsb
 
     ret
 

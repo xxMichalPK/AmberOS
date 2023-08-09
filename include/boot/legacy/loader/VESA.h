@@ -78,7 +78,7 @@ typedef struct {
 static VBE_INFO_t gVBEInformation __attribute__((aligned(0x100)));
 static VBE_MODE_INFO_t gVModeInformation __attribute__((aligned(0x100)));
 static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
-    rmode_regs_t regs;
+    rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
     regs.ds = RMODE_SEGMENT(&_loadAddr);
     regs.es = RMODE_SEGMENT(&_loadAddr);
@@ -88,7 +88,7 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     // Get VBE information
     regs.eax = 0x4F00;
     regs.edi = RMODE_OFFSET(&gVBEInformation);
-    bios_call_wrapper(0x10, &regs);
+    bios_call_wrapper(0x10, &regs, &outRegs);
     if (memcmp(gVBEInformation.signature, "VESA", 4) != 0) return -1;
     if (gVBEInformation.version < 0x0200) return -1;
 
@@ -104,7 +104,7 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
         regs.eax = 0x4F01;
         regs.ecx = modes[i];
         regs.edi = RMODE_OFFSET(&gVModeInformation);
-        bios_call_wrapper(0x10, &regs);
+        bios_call_wrapper(0x10, &regs, &outRegs);
 
         // Check if it supports linear framebuffer. If not go to next one
         if ((gVModeInformation.mode_attributes & 0x90) != 0x90) continue;
@@ -131,14 +131,14 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
         regs.eax = 0x4F01;
         regs.ecx = modes[modeIdx];
         regs.edi = RMODE_OFFSET(&gVModeInformation);
-        bios_call_wrapper(0x10, &regs);
+        bios_call_wrapper(0x10, &regs, &outRegs);
     }
 
     regs.eax = 0x4F02;
     regs.ebx = modes[modeIdx] | 0x4000;
     regs.ecx = 0;
     regs.edi = 0;
-    bios_call_wrapper(0x10, &regs);
+    bios_call_wrapper(0x10, &regs, &outRegs);
     return 0;
 }
 
