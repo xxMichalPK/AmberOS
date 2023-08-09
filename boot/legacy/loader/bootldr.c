@@ -1,8 +1,10 @@
 #include <stdint.h>
+#include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/VESA.h>
 #include <boot/legacy/loader/disk.h>
 
 void ldrmain(uint8_t bootDriveNum) {
+    GetE820MemoryMap();
     ReadSectors(bootDriveNum, 16, 1, (uint32_t*)0x59000);
     SetVideoMode(1024, 768, 32);
 
