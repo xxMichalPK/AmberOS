@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct __attribute__((packed)) {
-    uint16_t di, si, bx, dx, cx, ax;
+    uint32_t edi, esi, ebx, edx, ecx, eax;
     uint16_t gs, fs, es, ds;
 } rmode_regs_t;
 

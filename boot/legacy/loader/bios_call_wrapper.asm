@@ -12,7 +12,7 @@ section .text
 %define TMP_STACK_ADDR 0xF000
 
 ; typedef struct __attribute__((packed)) {
-;     uint16_t di, si, bx, dx, cx, ax;
+;     uint32_t edi, esi, ebx, edx, ecx, eax;
 ;     uint16_t gs, fs, es, ds;
 ; } rmode_regs_t;
 ; from C: extern void bios_call_wrapper(uint8_t interruptNumber, rmode_regs_t *regs);
@@ -76,12 +76,12 @@ rmode:
     mov esp, ebp
 
     ; Restore registers passed in the regs structure
-    pop di
-    pop si
-    pop bx
-    pop dx
-    pop cx
-    pop ax
+    pop edi
+    pop esi
+    pop ebx
+    pop edx
+    pop ecx
+    pop eax
     ; And the segments
     pop gs
     pop fs

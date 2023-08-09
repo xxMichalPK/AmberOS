@@ -86,8 +86,8 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     regs.gs = RMODE_SEGMENT(&_loadAddr);
 
     // Get VBE information
-    regs.ax = 0x4F00;
-    regs.di = RMODE_OFFSET(&gVBEInformation);
+    regs.eax = 0x4F00;
+    regs.edi = RMODE_OFFSET(&gVBEInformation);
     bios_call_wrapper(0x10, &regs);
     if (memcmp(gVBEInformation.signature, "VESA", 4) != 0) return -1;
     if (gVBEInformation.version < 0x0200) return -1;
@@ -101,9 +101,9 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     int32_t modeIdx = -1;
     for (int32_t i = 0; modes[i] != 0xFFFF; i++) {
         // Read the mode information
-        regs.ax = 0x4F01;
-        regs.cx = modes[i];
-        regs.di = RMODE_OFFSET(&gVModeInformation);
+        regs.eax = 0x4F01;
+        regs.ecx = modes[i];
+        regs.edi = RMODE_OFFSET(&gVModeInformation);
         bios_call_wrapper(0x10, &regs);
 
         // Check if it supports linear framebuffer. If not go to next one
@@ -128,16 +128,16 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     // If the desired mode wasn't found get the best mode found information
     if (modeIdx == -1) {
         modeIdx = bestModeIdx;
-        regs.ax = 0x4F01;
-        regs.cx = modes[modeIdx];
-        regs.di = RMODE_OFFSET(&gVModeInformation);
+        regs.eax = 0x4F01;
+        regs.ecx = modes[modeIdx];
+        regs.edi = RMODE_OFFSET(&gVModeInformation);
         bios_call_wrapper(0x10, &regs);
     }
 
-    regs.ax = 0x4F02;
-    regs.bx = modes[modeIdx] | 0x4000;
-    regs.cx = 0;
-    regs.di = 0;
+    regs.eax = 0x4F02;
+    regs.ebx = modes[modeIdx] | 0x4000;
+    regs.ecx = 0;
+    regs.edi = 0;
     bios_call_wrapper(0x10, &regs);
     return 0;
 }

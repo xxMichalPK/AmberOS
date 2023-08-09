@@ -30,9 +30,9 @@ static int ReadSectors(uint8_t driveNumber, uint64_t lba, uint16_t numSectors, u
     regs.es = RMODE_SEGMENT(&_loadAddr);
     regs.fs = RMODE_SEGMENT(&_loadAddr);
     regs.gs = RMODE_SEGMENT(&_loadAddr);
-    regs.dx = driveNumber;
-    regs.ax = 0x4200;
-    regs.si = RMODE_OFFSET(&dap);
+    regs.edx = driveNumber;
+    regs.eax = 0x4200;
+    regs.esi = RMODE_OFFSET(&dap);
     bios_call_wrapper(0x13, &regs);
 }
 
