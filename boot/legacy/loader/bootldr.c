@@ -2,8 +2,8 @@
 #include <boot/legacy/loader/VESA.h>
 #include <boot/legacy/loader/disk.h>
 
-void ldrmain() {
-    //ReadSectors(0, 1, (uint32_t*)0x19000);
+void ldrmain(uint8_t bootDriveNum) {
+    ReadSectors(bootDriveNum, 16, 1, (uint32_t*)0x59000);
     SetVideoMode(1024, 768, 32);
 
     uint32_t bpp = (gVModeInformation.bits_per_pixel + 1) / 8;

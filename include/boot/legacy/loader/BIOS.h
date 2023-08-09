@@ -9,9 +9,9 @@ typedef struct __attribute__((packed)) {
 } rmode_regs_t;
 
 extern void bios_call_wrapper(uint8_t interruptNumber, rmode_regs_t *regs);
-extern uint32_t *_loadAddr;
+extern uint32_t _loadAddr;
 
 #define RMODE_OFFSET(x) (uint16_t)(((uint32_t)x) & 0xFFFF)
-#define RMODE_SEGMENT(x) (uint16_t)((x - RMODE_OFFSET(x)) >> 4)
+#define RMODE_SEGMENT(x) (uint16_t)((((uint32_t)x) - RMODE_OFFSET(x)) >> 4)
 
 #endif

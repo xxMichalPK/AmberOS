@@ -3,6 +3,7 @@
 
 #include <boot/legacy/loader/BIOS.h>
 #include <boot/legacy/loader/memory.h>
+#include <boot/legacy/loader/math.h>
 
 typedef struct {
    uint8_t signature[4];        // == "VESA"
@@ -79,10 +80,10 @@ static VBE_MODE_INFO_t gVModeInformation __attribute__((aligned(0x100)));
 static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     rmode_regs_t regs;
     // Initialize all the segments with the segment of current address
-    regs.ds = RMODE_SEGMENT((uint32_t)&_loadAddr);
-    regs.es = RMODE_SEGMENT((uint32_t)&_loadAddr);
-    regs.fs = RMODE_SEGMENT((uint32_t)&_loadAddr);
-    regs.gs = RMODE_SEGMENT((uint32_t)&_loadAddr);
+    regs.ds = RMODE_SEGMENT(&_loadAddr);
+    regs.es = RMODE_SEGMENT(&_loadAddr);
+    regs.fs = RMODE_SEGMENT(&_loadAddr);
+    regs.gs = RMODE_SEGMENT(&_loadAddr);
 
     // Get VBE information
     regs.ax = 0x4F00;
@@ -96,8 +97,7 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     uint32_t modesAddr = (uint32_t)&gVBEInformation.vModePtr;
     uint16_t *modes = (uint16_t*)modesAddr;
     int32_t bestModeIdx = 0;
-    int32_t pixCount, bestPixCount = 320 * 200;
-    int32_t closestDepth, bestClosestDepth = 8;
+    uint32_t bestModeScore = 0xFFFFFFFF;
     int32_t modeIdx = -1;
     for (int32_t i = 0; modes[i] != 0xFFFF; i++) {
         // Read the mode information
@@ -115,20 +115,27 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
             break;
         }
 
-        // Otherwise, compare to the closest match so far, remember if best
-        pixCount = gVModeInformation.x_resolution * gVModeInformation.y_resolution;
-        closestDepth = gVModeInformation.bits_per_pixel;
-        if ((pixCount >= bestPixCount && closestDepth >= bestClosestDepth)) {
+        // Otherwise, calculate the score which indicates how close the current mode is to the desired one
+        uint32_t currentScore = ABS((int32_t)gVModeInformation.x_resolution - (int32_t)hRes) + 
+                                ABS((int32_t)gVModeInformation.y_resolution - (int32_t)vRes) + 
+                                ABS((int32_t)gVModeInformation.bits_per_pixel - (int32_t)bpp);
+        if (currentScore < bestModeScore) {
             bestModeIdx = i;
-            bestPixCount = pixCount;
-            bestClosestDepth = closestDepth;
-            if (pixCount > hRes * vRes && closestDepth == bpp) break;
+            bestModeScore = currentScore;
         }
     }
 
-    uint32_t selectedModeIdx = modeIdx > -1 ? modeIdx : bestModeIdx;
+    // If the desired mode wasn't found get the best mode found information
+    if (modeIdx == -1) {
+        modeIdx = bestModeIdx;
+        regs.ax = 0x4F01;
+        regs.cx = modes[modeIdx];
+        regs.di = RMODE_OFFSET(&gVModeInformation);
+        bios_call_wrapper(0x10, &regs);
+    }
+
     regs.ax = 0x4F02;
-    regs.bx = modes[selectedModeIdx] | 0x4000;
+    regs.bx = modes[modeIdx] | 0x4000;
     regs.cx = 0;
     regs.di = 0;
     bios_call_wrapper(0x10, &regs);
