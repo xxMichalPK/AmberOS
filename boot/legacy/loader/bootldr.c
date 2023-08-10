@@ -2,11 +2,15 @@
 #include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/VESA.h>
 #include <boot/legacy/loader/disk.h>
+#include <boot/legacy/loader/FS/ISO9660.h>
 
 void ldrmain(uint8_t bootDriveNum) {
     GetE820MemoryMap();
     InitializeMemoryManager();
-    ReadSectors(bootDriveNum, 16, 1, (uint32_t*)0x59000);
+    InitializeISO_FS(bootDriveNum);
+    uint32_t isobootSize = 0;
+    uint8_t *data;
+    ReadISO_FSFile(bootDriveNum, "/boot/isoboot.bin", &isobootSize, (void**)&data);
     SetVideoMode(1024, 768, 32);
 
     uint32_t bpp = (gVModeInformation.bits_per_pixel + 1) / 8;
@@ -16,10 +20,5 @@ void ldrmain(uint8_t bootDriveNum) {
         }
     }
 
-    //uint32_t *test = (uint32_t *)lmalloc(5 * sizeof(uint32_t));
-    uint32_t *aligned1 = (uint32_t *)lmalloc_a(0x23, 0x1000);
-    uint32_t *aligned2 = (uint32_t *)lmalloc_a(0x23, 0x1000);
-    uint32_t *aligned3 = (uint32_t *)lmalloc_a(0x23, 0x1000);
-    uint32_t *unaligned = (uint32_t *)lmalloc(0x23);
     for (;;);
 }
