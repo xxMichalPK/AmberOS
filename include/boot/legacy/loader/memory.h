@@ -89,13 +89,28 @@ static void InitializeMemoryManager() {
 }
 
 static void* lmalloc(uint64_t size) {
-    void* ret = 0;
+    void* ptr = 0;
     if (memoryBase && freeMemorySize >= size) {
-        ret = (void*)memoryBase;
+        ptr = (void*)memoryBase;
         memoryBase += size;
         freeMemorySize -= size;
     }
-    return ret;
+    return ptr;
+}
+
+static void* lmalloc_a(uint64_t size, uint32_t alignment) {
+    if ((((uint32_t)(memoryBase & 0xFFFFFFFF)) % alignment) == 0) return lmalloc(size);
+
+    void* ptr = 0;
+    if (!memoryBase || freeMemorySize - (((memoryBase & (0xFFFFFFFFFFFFFFFF - (alignment - 1))) + alignment) - memoryBase) < size) return ptr;
+
+    freeMemorySize -= (((memoryBase & (0xFFFFFFFFFFFFFFFF - (alignment - 1))) + alignment) - memoryBase);
+    memoryBase &= (0xFFFFFFFFFFFFFFFF - (alignment - 1));
+    memoryBase += alignment;
+    ptr = (void*)memoryBase;
+    memoryBase += size;
+    freeMemorySize -= size;
+    return ptr;
 }
 
 #endif

@@ -16,6 +16,10 @@ void ldrmain(uint8_t bootDriveNum) {
         }
     }
 
-    uint32_t *test = (uint32_t *)lmalloc(5 * sizeof(uint32_t));
+    //uint32_t *test = (uint32_t *)lmalloc(5 * sizeof(uint32_t));
+    uint32_t *aligned1 = (uint32_t *)lmalloc_a(0x23, 0x1000);
+    uint32_t *aligned2 = (uint32_t *)lmalloc_a(0x23, 0x1000);
+    uint32_t *aligned3 = (uint32_t *)lmalloc_a(0x23, 0x1000);
+    uint32_t *unaligned = (uint32_t *)lmalloc(0x23);
     for (;;);
 }
