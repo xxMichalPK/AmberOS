@@ -96,10 +96,13 @@ static int InitializeISO_FS(uint8_t diskNum) {
 static int ParseISODirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
     uint8_t rawDirectoryData[ISO_DIRECTORY_MAX_SIZE];
 
-    if (((dirSize / ISO_SECTOR_SIZE) + 1) * ISO_SECTOR_SIZE > ISO_DIRECTORY_MAX_SIZE) return -1;
+    uint32_t dirSectorSize = dirSize / ISO_SECTOR_SIZE;
+    if (dirSize % ISO_SECTOR_SIZE != 0) dirSectorSize++;
+
+    if (dirSectorSize * ISO_SECTOR_SIZE > ISO_DIRECTORY_MAX_SIZE) return -1;
 
     // Read the raw data into the array
-    if (ReadSectors(diskNum, dirLBA, ((dirSize / ISO_SECTOR_SIZE) + 1), (uint32_t*)rawDirectoryData) != 0) return -1;
+    if (ReadSectors(diskNum, dirLBA, dirSectorSize, (uint32_t*)rawDirectoryData) != 0) return -1;
 
     // Get the number of all entries in directory
     uint32_t numEntries = 0;
@@ -211,13 +214,15 @@ static int ReadISO_FSFile(uint8_t diskNum, char *path, uint32_t *fileSize, void*
 
     uint8_t tempDataBuffer[ISO_SECTOR_SIZE];
     for (uint32_t fIdx = 0; fIdx < numFilesInDirectory[dirCount - 1]; fIdx++) {
-        if (memcmp(directories[dirCount - 1][fIdx].fileName, path, dirNameLenghts[dirCount]) == 0 &&
-            directories[dirCount - 1][fIdx].nameLength == dirNameLenghts[dirCount]) {
-            (*dataBuffer) = lmalloc(((directories[dirCount - 1][fIdx].fileSize / ISO_SECTOR_SIZE) + 1) * ISO_SECTOR_SIZE);
+        if (memcmp(directories[dirCount - 1][fIdx].fileName, path, dirNameLenghts[dirCount]) == 0 && directories[dirCount - 1][fIdx].nameLength == dirNameLenghts[dirCount]) {
+            uint32_t dataSectorSize = (directories[dirCount - 1][fIdx].fileSize / ISO_SECTOR_SIZE);
+            if (directories[dirCount - 1][fIdx].fileSize % ISO_SECTOR_SIZE != 0) dataSectorSize++;
+
+            (*dataBuffer) = lmalloc(dataSectorSize * ISO_SECTOR_SIZE);
             if (!(*dataBuffer)) return -1;
 
             // Up to this point everything works fine. The second iteration crashes!
-            for (uint32_t currentLBA = directories[dirCount - 1][fIdx].extentLBA, off = 0; currentLBA < directories[dirCount - 1][fIdx].extentLBA + ((directories[dirCount - 1][fIdx].fileSize / ISO_SECTOR_SIZE) + 1); currentLBA++, off += ISO_SECTOR_SIZE) {
+            for (uint32_t currentLBA = directories[dirCount - 1][fIdx].extentLBA, off = 0; currentLBA < directories[dirCount - 1][fIdx].extentLBA + dataSectorSize; currentLBA++, off += ISO_SECTOR_SIZE) {
                 if (ReadSectors(diskNum, currentLBA, 1, (uint32_t*)tempDataBuffer) != 0) return -1;
                 memcpy((void*)((*dataBuffer) + off), (void*)tempDataBuffer, ISO_SECTOR_SIZE);
             }

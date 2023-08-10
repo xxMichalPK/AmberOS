@@ -14,9 +14,9 @@ void ldrmain(uint8_t bootDriveNum) {
     SetVideoMode(1024, 768, 32);
 
     uint32_t bpp = (gVModeInformation.bits_per_pixel + 1) / 8;
-    for (int y = 20; y < 40; y++) {
-        for (int x = 20; x < 40; x++) {
-            *((uint32_t*)(gVModeInformation.physical_base_pointer + (x * bpp) + (y * gVModeInformation.x_resolution * bpp))) = 0xFFDA9623;
+    for (int y = 0; y < 768; y++) {
+        for (int x = 0; x < 1024; x++) {
+            *((uint32_t*)(gVModeInformation.physical_base_pointer + (x * bpp) + (y * gVModeInformation.x_resolution * bpp))) = 0xFF04CE28;
         }
     }
 

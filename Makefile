@@ -15,9 +15,10 @@ UEFI_BOOT_DIR = boot/UEFI/
 
 ISO: build_legacy_boot build_uefi_boot
 	@echo "[Preparing files for ISO creation...]"
-	@mkdir -p iso
+	@mkdir -p iso iso/AmberOS/SysConfig/
 	@cp -r build/* iso/
 	@cp -r branding/* iso/AmberOS/
+	@cp -r configuration/* iso/AmberOS/SysConfig/
 
 	@echo "[Creating EFI boot image...]"
 	@dd if=/dev/zero of=iso/boot/efiboot.img bs=512 count=10240
