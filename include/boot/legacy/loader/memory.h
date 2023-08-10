@@ -72,4 +72,30 @@ static int GetE820MemoryMap() {
     return 0;
 }
 
+
+static uint64_t memoryBase = 0;
+static uint64_t freeMemorySize = 0;
+static uint64_t currentMemoryRegionIdx = 0;
+// Simple bulk allocator
+static void InitializeMemoryManager() {
+    for (uint32_t idx = 0; idx < gE20MemoryMapEntryCount; idx++) {
+        if (gE20MemoryMap[idx].baseAddress >= 0x00100000 && gE20MemoryMap[idx].type == 1) {
+            currentMemoryRegionIdx = idx;
+            memoryBase = gE20MemoryMap[idx].baseAddress;
+            freeMemorySize = gE20MemoryMap[idx].length;
+            break;
+        }
+    }
+}
+
+static void* lmalloc(uint64_t size) {
+    void* ret = 0;
+    if (memoryBase && freeMemorySize >= size) {
+        ret = (void*)memoryBase;
+        memoryBase += size;
+        freeMemorySize -= size;
+    }
+    return ret;
+}
+
 #endif

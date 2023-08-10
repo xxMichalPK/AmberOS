@@ -5,6 +5,7 @@
 
 void ldrmain(uint8_t bootDriveNum) {
     GetE820MemoryMap();
+    InitializeMemoryManager();
     ReadSectors(bootDriveNum, 16, 1, (uint32_t*)0x59000);
     SetVideoMode(1024, 768, 32);
 
@@ -14,5 +15,7 @@ void ldrmain(uint8_t bootDriveNum) {
             *((uint32_t*)(gVModeInformation.physical_base_pointer + (x * bpp) + (y * gVModeInformation.x_resolution * bpp))) = 0xFFDA9623;
         }
     }
+
+    uint32_t *test = (uint32_t *)lmalloc(5 * sizeof(uint32_t));
     for (;;);
 }
