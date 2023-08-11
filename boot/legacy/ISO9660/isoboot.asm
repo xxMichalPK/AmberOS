@@ -168,7 +168,7 @@ JumpToLoader:
     mov fs, ax
     mov gs, ax
 
-    mov ebp, 0x1F000    ; Set stack in the same segment range as the loader!
+    mov ebp, 0x80000    ; Set stack above loader and below the EBDA
     mov esp, ebp        ; Set the stack
     
     ; Send the boot drive number to the loader

@@ -26,10 +26,10 @@ static int ReadSectors(uint8_t driveNumber, uint64_t lba, uint16_t numSectors, u
     
     rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
-    regs.ds = RMODE_SEGMENT(&_loadAddr);
-    regs.es = RMODE_SEGMENT(&_loadAddr);
-    regs.fs = RMODE_SEGMENT(&_loadAddr);
-    regs.gs = RMODE_SEGMENT(&_loadAddr);
+    regs.ds = RMODE_SEGMENT(&dap);
+    regs.es = RMODE_SEGMENT(&ReadSectors);
+    regs.fs = RMODE_SEGMENT(&ReadSectors);
+    regs.gs = RMODE_SEGMENT(&ReadSectors);
     regs.edx = driveNumber;
     regs.eax = 0x4200;
     regs.esi = RMODE_OFFSET(&dap);

@@ -80,10 +80,10 @@ static VBE_MODE_INFO_t gVModeInformation __attribute__((aligned(0x100)));
 static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
-    regs.ds = RMODE_SEGMENT(&_loadAddr);
-    regs.es = RMODE_SEGMENT(&_loadAddr);
-    regs.fs = RMODE_SEGMENT(&_loadAddr);
-    regs.gs = RMODE_SEGMENT(&_loadAddr);
+    regs.ds = RMODE_SEGMENT(&SetVideoMode);
+    regs.es = RMODE_SEGMENT(&gVBEInformation);
+    regs.fs = RMODE_SEGMENT(&SetVideoMode);
+    regs.gs = RMODE_SEGMENT(&SetVideoMode);
 
     // Get VBE information
     regs.eax = 0x4F00;
@@ -94,6 +94,7 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
 
     // If we are here the VBE is supported!
     // Find the requested video mode or the closest fit...
+    regs.es = RMODE_SEGMENT(&gVModeInformation);    // Prepare es segment as the data destination segment
     uint32_t modesAddr = (uint32_t)&gVBEInformation.vModePtr;
     uint16_t *modes = (uint16_t*)modesAddr;
     int32_t bestModeIdx = 0;

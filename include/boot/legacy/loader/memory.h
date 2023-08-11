@@ -40,10 +40,10 @@ static E20_MemoryMap_t gE20MemoryMap[E820_MAX_ENTRIES];
 static int GetE820MemoryMap() {
     rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
-    regs.ds = RMODE_SEGMENT(&_loadAddr);
-    regs.es = RMODE_SEGMENT(&_loadAddr);
-    regs.fs = RMODE_SEGMENT(&_loadAddr);
-    regs.gs = RMODE_SEGMENT(&_loadAddr);
+    regs.ds = RMODE_SEGMENT(&GetE820MemoryMap);
+    regs.es = RMODE_SEGMENT(&gE20MemoryMap[0]);
+    regs.fs = RMODE_SEGMENT(&GetE820MemoryMap);
+    regs.gs = RMODE_SEGMENT(&GetE820MemoryMap);
 
     regs.eax = 0x0000E820;
     regs.edx = 0x534D4150;                  // SMAP
