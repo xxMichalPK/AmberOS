@@ -34,6 +34,7 @@ typedef struct {
 } __attribute__((packed)) GIF_Header_t;
 
 typedef struct {
+    BOOLEAN isNetscape;
     int32_t numberOfRepetitions;
 } __attribute__((packed)) GIF_ApplicationExtension_t;
 
@@ -60,14 +61,25 @@ typedef struct {
 } __attribute__((packed)) LZW_TableEntry_t;
 
 static EFI_STATUS HandleApplicationExtension(uint8_t **gifData, GIF_ApplicationExtension_t *extData) {
+    extData->isNetscape = FALSE;
     extData->numberOfRepetitions = -1;
     // For now we support only NETSCAPE
     *gifData += 1;
-    if (memcmp(*gifData + 1, "NETSCAPE2.0", **gifData) != 0) return EFI_UNSUPPORTED;
-    *gifData += (**gifData) + 3;
-    extData->numberOfRepetitions = (**gifData) | ((*((*gifData) + 1)) << 8);
-    *gifData += 2;
-    return EFI_SUCCESS;
+    if (memcmp(*gifData + 1, "NETSCAPE2.0", **gifData) == 0) {
+        extData->isNetscape = TRUE;
+        *gifData += (**gifData) + 3;
+        extData->numberOfRepetitions = (**gifData) | ((*((*gifData) + 1)) << 8);
+        *gifData += 2;
+        return EFI_SUCCESS;
+    }
+
+    if (memcmp(*gifData + 1, "ImageMagick", **gifData) == 0) {
+        *gifData += (**gifData) + 1;
+        *gifData += (**gifData) + 1;
+        return EFI_SUCCESS;
+    }
+
+    return EFI_UNSUPPORTED;
 }
 
 static EFI_STATUS HandleCommentExtension(uint8_t **gifData) {
@@ -294,11 +306,11 @@ static EFI_STATUS DrawGIF(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, uint8_t *gifData, u
                         case GIF_APPLICATION_EXTENSION: {
                             GIF_ApplicationExtension_t extensionData;
                             status = HandleApplicationExtension(&gifData, &extensionData);
-                            if (EFI_ERROR(status)) return EFI_ABORTED;
-                            if (extensionData.numberOfRepetitions > -1) {
+                            if (EFI_ERROR(status)) { Print(L"App extension\n\r"); return EFI_ABORTED; }
+                            if (extensionData.numberOfRepetitions > -1)
                                 repeatedDataPointer = gifData;
-                            }
-                            numRepetitions = extensionData.numberOfRepetitions;
+                            if (extensionData.isNetscape == TRUE)
+                                numRepetitions = extensionData.numberOfRepetitions;
                             continue;
                         }
                         case GIF_COMMENT_EXTENSION:
@@ -307,7 +319,7 @@ static EFI_STATUS DrawGIF(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, uint8_t *gifData, u
                         case GIF_GRAPHIC_CONTROL_EXTENSION: {
                             GIF_GraphicControlExtension_t extensionData;
                             status = HandleGraphicControlExtension(&gifData, &extensionData);
-                            if (EFI_ERROR(status)) return EFI_ABORTED;
+                            if (EFI_ERROR(status)) { Print(L"Graphics extension\n\r"); return EFI_ABORTED; }
                             if (extensionData.frameDelay) frameDelay = extensionData.frameDelay;
                             continue;
                         }
