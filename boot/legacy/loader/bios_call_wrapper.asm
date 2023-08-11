@@ -1,9 +1,6 @@
 [BITS 32]
 section .text
 [global bios_call_wrapper]
-[extern _loadAddr]
-
-%define BASE_SEGMENT 0x1000
 ; Those are the offsets set by the 1'st stage bootloader
 %define CODE32_SEG 0x08
 %define DATA32_SEG 0x10
@@ -54,15 +51,17 @@ prot16:
     mov esp, ebp
 
     mov eax, rmode          ; Since the linker was complaining about relocations
-    mov ebx, _loadAddr       ; use a 'trick' to ensure valid cs:ip
-    sub eax, ebx            ; Get the base address of this executable (_loadAddr)
-    push BASE_SEGMENT       ; And substract it from the address of the rmode function (this is out IP)
-    push ax                 ; Push first the segment (BASE_SEGMENT = 0x1000) and then the offset calculated in ax to stack
-    retf                    ; And perform a far return
+    mov edx, eax            ; use a 'trick' to ensure valid cs:ip. First get the address of rmode and store it in 2 registers
+    movzx eax, ax           ; then, get it's offset in the segment using the movzx instruction (this is our IP)
+    sub edx, eax            ; subtract the offset from the original address to get the segment (shifted 4 bits to the left)
+    shr edx, 4              ; shift the address to the right by 4 bits to get the actual segment
+    push dx                 ; Now push the segment first
+    push ax                 ; and then the offset
+    retf                    ; Do a far return to get into the actual real mode
 
 ; We will land right here in the real mode 16bit code section!
 rmode:
-    mov ax, BASE_SEGMENT
+    mov ax, dx              ; dx holds the current segment
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -71,8 +70,7 @@ rmode:
 
     ; Get the stack offset from the base
     mov eax, stack16
-    mov ebx, _loadAddr
-    sub eax, ebx
+    movzx eax, ax
     ; Set the stack to the 16bit stack
     mov ebp, eax
     mov esp, ebp
