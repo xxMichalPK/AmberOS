@@ -1,10 +1,10 @@
 [BITS 32]
 section .text
-[global ldrentry]
-[extern ldrmain]
+[global loader_entry]
+[extern loader_main]
 
-ldrentry:
-    call ldrmain
+loader_entry:
+    call loader_main
 
     .hlt:
         jmp .hlt

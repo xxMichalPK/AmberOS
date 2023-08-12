@@ -22,7 +22,8 @@ ifeq ($(ARCH),x86_64)
 endif
 
 OUTPUT_DIR = ./../../build/AmberOS/EFI/BOOT
-OUTPUT_FILE = BOOTX64.EFI
+OUTPUT_FILE = amberldr.EFI
+BOOT_FILE = BOOTX64.EFI
 
 build: $(OUTPUT_FILE)
 
@@ -40,4 +41,4 @@ build: $(OUTPUT_FILE)
 	@mkdir -p $(OUTPUT_DIR)
 	@objcopy -j .text -j .sdata -j .data -j .dynamic \
 	-j .dynsym -j .rel -j .rela -j .reloc \
-	--target=efi-app-$(ARCH) $^ $(OUTPUT_DIR)/$@
+	--target=efi-app-$(ARCH) $^ $(OUTPUT_DIR)/$(BOOT_FILE)

@@ -4,7 +4,7 @@
 #include <boot/legacy/loader/disk.h>
 #include <boot/legacy/loader/FS/ISO9660.h>
 
-void ldrmain(uint8_t bootDriveNum) {
+void loader_main(uint8_t bootDriveNum) {
     GetE820MemoryMap();
     InitializeMemoryManager();
     InitializeISO_FS(bootDriveNum);

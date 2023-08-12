@@ -6,8 +6,8 @@
 # */
 
 OUTPUT_DIR = ./../../../build/boot
-OUTPUT_FILE = bootldr.bin
-OBJ_FILES = ldrentry.o bios_call_wrapper.o bootldr.o
+OUTPUT_FILE = amberldr.bin
+OBJ_FILES = ldrentry.o bios_call_wrapper.o amberldr.o
 CC_FLAGS = -m32 -ffreestanding -fno-PIC -fno-PIE -I../../../include
 LD_FLAGS = -melf_i386 -T ldr.ld
 

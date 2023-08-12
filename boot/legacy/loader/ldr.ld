@@ -1,5 +1,5 @@
 OUTPUT_FORMAT("binary")
-ENTRY(ldrentry)
+ENTRY(loader_entry)
 
 PHYSICAL_ADDRESS = 0x00010000;
 

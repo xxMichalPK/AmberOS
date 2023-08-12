@@ -148,8 +148,8 @@ RMODE_INCLUDE 'a20.inc'
 
 bootDirName: db "boot"
     .len: db 4
-loaderName: db "bootldr.bin"
-    .len: db 11
+loaderName: db "amberldr.bin"
+    .len: db 12
 
 startMSG: db "AmberOS v0.1a (Tyro) Live", 0x0A, 0x0D
 		  db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
