@@ -1,3 +1,7 @@
+# Ignore VS Code configuration files
+/.vscode/
+/.vscode/*
+
 # Ignore all files in the notes folder
 /notes/
 /notes/*

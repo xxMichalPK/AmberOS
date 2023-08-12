@@ -12,8 +12,9 @@ OS_CODENAME = Tyro
 
 LEGACY_BOOT_DIR = boot/legacy/
 UEFI_BOOT_DIR = boot/UEFI/
+KERNEL_DIR = kernel/
 
-ISO: build_legacy_boot build_uefi_boot
+ISO: build_legacy_boot build_uefi_boot build_kernel
 	@echo "[Preparing files for ISO creation...]"
 	@mkdir -p iso iso/AmberOS/SysConfig/
 	@cp -r build/* iso/
@@ -49,6 +50,10 @@ build_legacy_boot:
 build_uefi_boot:
 	@echo "[Building UEFI bootloader...]"
 	@$(MAKE) -C $(UEFI_BOOT_DIR) --no-print-directory
+
+build_kernel:
+	@echo "[Building AmberOS kernel...]"
+	@$(MAKE) -C $(KERNEL_DIR) --no-print-directory
 
 run_legacy: ISO
 	@echo "[Running $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso...]"
