@@ -78,31 +78,36 @@ typedef struct ISO_DirectoryEntry {
 } __attribute__((packed)) ISO_DirectoryEntry_t;
 
 static ISO_Primary_Volume_Descriptor_t *pvd = NULL;
-static int InitializeISO_FS(uint8_t diskNum) {
+static int ISO_Initialize(uint8_t diskNum) {
     pvd = (ISO_Primary_Volume_Descriptor_t *)lmalloc(ISO_SECTOR_SIZE);
     if (!pvd) return -1;
 
-    // Since we execute the ReadSectors function in real mode, we can't read to address above 1MB
-    // so create a temporary data buffer for storing the data
+    // Use a temporary data buffer to avoid -Waddress-of-packed-member warning
     uint8_t dataBuffer[ISO_SECTOR_SIZE];
 
-    ISO_Primary_Volume_Descriptor_t *pvdPtr = pvd;
-    if (ReadSectors(diskNum, ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA, 1, (uint32_t*)dataBuffer) != 0) return -1;
+    if (ReadSectors(diskNum, ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA, 1, (uint32_t*)dataBuffer) != 0) {
+        lfree(pvd);
+        pvd = NULL;
+        return -1;
+    }
 
     memcpy(pvd, dataBuffer, ISO_SECTOR_SIZE);
     return 0;
 }
 
-static int ParseISODirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
-    uint8_t rawDirectoryData[ISO_DIRECTORY_MAX_SIZE];
+static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
+    if (!dirSize) return -1;
 
     uint32_t dirSectorSize = dirSize / ISO_SECTOR_SIZE;
     if (dirSize % ISO_SECTOR_SIZE != 0) dirSectorSize++;
 
-    if (dirSectorSize * ISO_SECTOR_SIZE > ISO_DIRECTORY_MAX_SIZE) return -1;
-
+    uint8_t *rawDirectoryData = (uint8_t *)lmalloc(dirSectorSize * ISO_SECTOR_SIZE * sizeof(uint8_t));
+    if (!rawDirectoryData) return -1;
     // Read the raw data into the array
-    if (ReadSectors(diskNum, dirLBA, dirSectorSize, (uint32_t*)rawDirectoryData) != 0) return -1;
+    if (ReadSectors(diskNum, dirLBA, dirSectorSize, (uint32_t*)rawDirectoryData) != 0) {
+        lfree(rawDirectoryData);
+        return -1;
+    }
 
     // Get the number of all entries in directory
     uint32_t numEntries = 0;
@@ -116,7 +121,10 @@ static int ParseISODirectory(uint8_t diskNum, const uint32_t dirLBA, const uint3
 
     // Allocate memory for the directory structure
     *directory = (ISO_DirectoryEntry_t*)lmalloc(numEntries * sizeof(ISO_DirectoryEntry_t));
-    if (!directory) return -1;
+    if (!directory) {
+        lfree(rawDirectoryData);
+        return -1;
+    }
 
     // Copy the raw data to the structure
     for (uint32_t i = 0, entryPos = 0; i < numEntries; i++) {
@@ -141,7 +149,14 @@ static int ParseISODirectory(uint8_t diskNum, const uint32_t dirLBA, const uint3
         // File Name is variable-length, so let's copy it properly
         uint32_t fullNameLength = (*directory)[i].nameLength + (rawDirectoryData[entryPos + 33] == 1 ? 1 : 0);
         (*directory)[i].fileName = (uint8_t*)lmalloc((fullNameLength + 1) * sizeof(uint8_t));
-        if ((*directory)[i].fileName == NULL) return -1;
+        if ((*directory)[i].fileName == NULL) {
+            for (uint32_t j = 0; j < i; j++) {
+                lfree((*directory)[j].fileName);
+            }
+            lfree(*directory);
+            lfree(rawDirectoryData);
+            return -1;
+        }
 
         if (rawDirectoryData[entryPos + 33] != 0 && rawDirectoryData[entryPos + 33] != 1)
             memcpy((*directory)[i].fileName, &rawDirectoryData[entryPos + 33], fullNameLength);
@@ -153,10 +168,11 @@ static int ParseISODirectory(uint8_t diskNum, const uint32_t dirLBA, const uint3
         entryPos += (*directory)[i].recordLength;
     }
 
+    lfree(rawDirectoryData);
     return 0;
 }
 
-static int ReadISO_FSFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** dataBuffer) {
+static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** dataBuffer) {
     // We have to specify the absolute file path starting with '/'
     if (path[0] != '/') return -1;
 
@@ -185,16 +201,29 @@ static int ReadISO_FSFile(uint8_t diskNum, char *path, uint32_t *fileSize, void*
 
     ISO_DirectoryEntry_t **directories = { NULL };
     directories = (ISO_DirectoryEntry_t**)lmalloc(dirCount * sizeof(ISO_DirectoryEntry_t*));
-    if (!directories) return -1;
+    if (!directories) {
+        lfree(dirNameLenghts);
+        return -1;
+    }
 
     uint32_t *numFilesInDirectory = NULL;
     numFilesInDirectory = (uint32_t*)lmalloc(dirCount * sizeof(uint32_t));
-    if (!numFilesInDirectory) return -1;
+    if (!numFilesInDirectory) {
+        lfree(directories);
+        lfree(dirNameLenghts);
+        return -1;
+    }
 
     // First directory is always the root directory
-    if (ParseISODirectory(diskNum, pvd->rootDirEntry[2] | pvd->rootDirEntry[3] << 8 | pvd->rootDirEntry[4] << 16 | pvd->rootDirEntry[5] << 24,
+    if (ISO_ParseDirectory(diskNum, pvd->rootDirEntry[2] | pvd->rootDirEntry[3] << 8 | pvd->rootDirEntry[4] << 16 | pvd->rootDirEntry[5] << 24,
                                pvd->rootDirEntry[10] | pvd->rootDirEntry[11] << 8 | pvd->rootDirEntry[12] << 16 | pvd->rootDirEntry[13] << 24,
-                               &numFilesInDirectory[0], &directories[0]) != 0) return -1;
+                               &numFilesInDirectory[0], &directories[0]) != 0
+    ) {
+        lfree(numFilesInDirectory);
+        lfree(directories);
+        lfree(dirNameLenghts);
+        return -1;
+    }
 
     path++; // Skip the first slash '/'
     for (uint32_t d = 0; d < dirCount - 1; d++) {
@@ -202,14 +231,36 @@ static int ReadISO_FSFile(uint8_t diskNum, char *path, uint32_t *fileSize, void*
 
         for (uint32_t fIdx = 0; fIdx < numFilesInDirectory[d]; fIdx++) {
             if (memcmp(directories[d][fIdx].fileName, path, dirNameLenghts[d + 1]) == 0) {
-                if (ParseISODirectory(diskNum, directories[d][fIdx].extentLBA, directories[d][fIdx].fileSize, &numFilesInDirectory[d + 1], &directories[d + 1]) != 0) return -1;
+                if (ISO_ParseDirectory(diskNum, directories[d][fIdx].extentLBA, directories[d][fIdx].fileSize, &numFilesInDirectory[d + 1], &directories[d + 1]) != 0) {
+                    for (uint32_t fd = 0; fd <= d; fd++) {
+                        for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                            lfree(directories[fd][ff].fileName);
+                        }
+                        lfree(directories[fd]);
+                    }
+                    lfree(directories);
+                    lfree(dirNameLenghts);
+                    lfree(numFilesInDirectory);
+                    return -1;
+                }
 
                 path += dirNameLenghts[d + 1] + 1;
                 exists = 1;
             }
         }
 
-        if (!exists) return -1;
+        if (!exists) {
+            for (uint32_t fd = 0; fd <= d; fd++) {
+                for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                    lfree(directories[fd][ff].fileName);
+                }
+                lfree(directories[fd]);
+            }
+            lfree(directories);
+            lfree(dirNameLenghts);
+            lfree(numFilesInDirectory);
+            return -1;
+        }
     }
 
     uint8_t tempDataBuffer[ISO_SECTOR_SIZE];
@@ -218,22 +269,172 @@ static int ReadISO_FSFile(uint8_t diskNum, char *path, uint32_t *fileSize, void*
             uint32_t dataSectorSize = (directories[dirCount - 1][fIdx].fileSize / ISO_SECTOR_SIZE);
             if (directories[dirCount - 1][fIdx].fileSize % ISO_SECTOR_SIZE != 0) dataSectorSize++;
 
-            (*dataBuffer) = lmalloc(dataSectorSize * ISO_SECTOR_SIZE);
-            if (!(*dataBuffer)) return -1;
+            if (!(*dataBuffer))
+                (*dataBuffer) = lmalloc(dataSectorSize * ISO_SECTOR_SIZE);
+            if (!(*dataBuffer)) {
+                for (uint32_t fd = 0; fd < dirCount; fd++) {
+                    for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                        lfree(directories[fd][ff].fileName);
+                    }
+                    lfree(directories[fd]);
+                }
+                lfree(directories);
+                lfree(dirNameLenghts);
+                lfree(numFilesInDirectory);
+                return -1;
+            }
 
-            // Up to this point everything works fine. The second iteration crashes!
             for (uint32_t currentLBA = directories[dirCount - 1][fIdx].extentLBA, off = 0; currentLBA < directories[dirCount - 1][fIdx].extentLBA + dataSectorSize; currentLBA++, off += ISO_SECTOR_SIZE) {
-                if (ReadSectors(diskNum, currentLBA, 1, (uint32_t*)tempDataBuffer) != 0) return -1;
+                if (ReadSectors(diskNum, currentLBA, 1, (uint32_t*)tempDataBuffer) != 0) {
+                    for (uint32_t fd = 0; fd < dirCount; fd++) {
+                        for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                            lfree(directories[fd][ff].fileName);
+                        }
+                        lfree(directories[fd]);
+                    }
+                    lfree(directories);
+                    lfree(dirNameLenghts);
+                    lfree(numFilesInDirectory);
+                    return -1;
+                }
                 memcpy((void*)((*dataBuffer) + off), (void*)tempDataBuffer, ISO_SECTOR_SIZE);
             }
 
             *fileSize = directories[dirCount - 1][fIdx].fileSize;
+            for (uint32_t fd = 0; fd < dirCount; fd++) {
+                for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                    lfree(directories[fd][ff].fileName);
+                }
+                lfree(directories[fd]);
+            }
+            lfree(directories);
+            lfree(dirNameLenghts);
+            lfree(numFilesInDirectory);
             return 0;
         }
     }
 
     *fileSize = 0;
+    for (uint32_t fd = 0; fd < dirCount; fd++) {
+        for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+            lfree(directories[fd][ff].fileName);
+        }
+        lfree(directories[fd]);
+    }
+    lfree(directories);
+    lfree(dirNameLenghts);
+    lfree(numFilesInDirectory);
     return -1;
+}
+
+static size_t ISO_GetFileSize(uint8_t diskNum, char *path) {
+    // We have to specify the absolute file path starting with '/'
+    if (path[0] != '/') return 0;
+
+    uint32_t dirCount = 0;
+    uint32_t dirPos = 0;
+    while (path[dirPos] != '\0') {
+        if (path[dirPos] == '/') dirCount++;
+        dirPos++;
+    }
+
+    uint32_t *dirNameLenghts = NULL;
+    dirNameLenghts = (uint32_t*)lmalloc((dirCount + 1) * sizeof(uint32_t));
+    if (!dirNameLenghts) return 0;
+
+    for (uint32_t i = 0; i < dirCount + 1; i++) {
+        dirNameLenghts[i] = 0;
+    }
+
+    uint32_t dirIdx = 0;
+    dirPos = 0;
+    while (path[dirPos] != '\0') {
+        if (path[dirPos] == '/') { dirIdx++; dirPos++; continue; }
+        dirNameLenghts[dirIdx] += 1;
+        dirPos++;
+    }
+
+    ISO_DirectoryEntry_t **directories = { NULL };
+    directories = (ISO_DirectoryEntry_t**)lmalloc(dirCount * sizeof(ISO_DirectoryEntry_t*));
+    if (!directories) {
+        lfree(dirNameLenghts);
+        return 0;
+    }
+
+    uint32_t *numFilesInDirectory = NULL;
+    numFilesInDirectory = (uint32_t*)lmalloc(dirCount * sizeof(uint32_t));
+    if (!numFilesInDirectory) {
+        lfree(directories);
+        lfree(dirNameLenghts);
+        return 0;
+    }
+
+    // First directory is always the root directory
+    if (ISO_ParseDirectory(diskNum, pvd->rootDirEntry[2] | pvd->rootDirEntry[3] << 8 | pvd->rootDirEntry[4] << 16 | pvd->rootDirEntry[5] << 24,
+                               pvd->rootDirEntry[10] | pvd->rootDirEntry[11] << 8 | pvd->rootDirEntry[12] << 16 | pvd->rootDirEntry[13] << 24,
+                               &numFilesInDirectory[0], &directories[0]) != 0
+    ) {
+        lfree(numFilesInDirectory);
+        lfree(directories);
+        lfree(dirNameLenghts);
+        return 0;
+    }
+
+    path++; // Skip the first slash '/'
+    for (uint32_t d = 0; d < dirCount - 1; d++) {
+        uint8_t exists = 0;
+
+        for (uint32_t fIdx = 0; fIdx < numFilesInDirectory[d]; fIdx++) {
+            if (memcmp(directories[d][fIdx].fileName, path, dirNameLenghts[d + 1]) == 0) {
+                if (ISO_ParseDirectory(diskNum, directories[d][fIdx].extentLBA, directories[d][fIdx].fileSize, &numFilesInDirectory[d + 1], &directories[d + 1]) != 0) {
+                    for (uint32_t fd = 0; fd <= d; fd++) {
+                        for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                            lfree(directories[fd][ff].fileName);
+                        }
+                        lfree(directories[fd]);
+                    }
+                    lfree(directories);
+                    lfree(dirNameLenghts);
+                    lfree(numFilesInDirectory);
+                    return 0;
+                }
+
+                path += dirNameLenghts[d + 1] + 1;
+                exists = 1;
+            }
+        }
+
+        if (!exists) {
+            for (uint32_t fd = 0; fd <= d; fd++) {
+                for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                    lfree(directories[fd][ff].fileName);
+                }
+                lfree(directories[fd]);
+            }
+            lfree(directories);
+            lfree(dirNameLenghts);
+            lfree(numFilesInDirectory);
+            return 0;
+        }
+    }
+
+    for (uint32_t fIdx = 0; fIdx < numFilesInDirectory[dirCount - 1]; fIdx++) {
+        if (memcmp(directories[dirCount - 1][fIdx].fileName, path, dirNameLenghts[dirCount]) == 0 && directories[dirCount - 1][fIdx].nameLength == dirNameLenghts[dirCount]) {
+            size_t fileSize = directories[dirCount - 1][fIdx].fileSize;
+            for (uint32_t fd = 0; fd < dirCount; fd++) {
+                for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
+                    lfree(directories[fd][ff].fileName);
+                }
+                lfree(directories[fd]);
+            }
+            lfree(directories);
+            lfree(dirNameLenghts);
+            lfree(numFilesInDirectory);
+            return fileSize;
+        }
+    }
+
+    return 0;
 }
 
 #endif
