@@ -24,5 +24,7 @@ SECTIONS {
         *(.bss)
     }
 
+    _loaderEnd = .;
+
     /DISCARD/ : { *(.fini_array*) *(.comment) }
 }

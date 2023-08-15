@@ -5,6 +5,7 @@
 #include <boot/legacy/loader/BIOS.h>
 
 #define E820_MAX_ENTRIES 128
+#define MIN_REGION_SIZE 0x10    // This is only used to split one memory region into 2
 
 typedef struct {
     uint64_t baseAddress;
@@ -72,45 +73,141 @@ static int GetE820MemoryMap() {
     return 0;
 }
 
+// Allocator stuff
+typedef struct MemoryRegion_s {
+    uint8_t available;
+    uint64_t size;
+    struct MemoryRegion_s *prev;
+    struct MemoryRegion_s *next;
+    void *base;
+} __attribute__((packed)) MemoryRegion_t;
 
-static uint64_t memoryBase = 0;
-static uint64_t freeMemorySize = 0;
+static MemoryRegion_t* firstMemoryRegion = NULL;
 static uint64_t currentMemoryRegionIdx = 0;
-// Simple bulk allocator
+
+// Simple linked list allocator
 static void InitializeMemoryManager() {
     for (uint32_t idx = 0; idx < gE20MemoryMapEntryCount; idx++) {
-        if (gE20MemoryMap[idx].baseAddress >= 0x00100000 && gE20MemoryMap[idx].type == 1) {
+        if (gE20MemoryMap[idx].type == 1 &&
+            ((uint32_t)(&_loaderEnd)) >= gE20MemoryMap[idx].baseAddress && 
+            ((uint32_t)(&_loaderEnd)) < gE20MemoryMap[idx].baseAddress + gE20MemoryMap[idx].length &&
+            gE20MemoryMap[idx].baseAddress + gE20MemoryMap[idx].length - ((uint32_t)(&_loaderEnd)) > 0x10000 // We need at least 65KiB of free memory!
+        ) {
             currentMemoryRegionIdx = idx;
-            memoryBase = gE20MemoryMap[idx].baseAddress;
-            freeMemorySize = gE20MemoryMap[idx].length;
+            MemoryRegion_t *currentRegion = ((MemoryRegion_t*)(uintptr_t)(uint32_t)(&_loaderEnd));
+            firstMemoryRegion = (MemoryRegion_t *)((uintptr_t)currentRegion);
+            currentRegion->available = 1;
+            currentRegion->prev = NULL;
+            currentRegion->next = NULL;
+            currentRegion->size = gE20MemoryMap[idx].baseAddress + gE20MemoryMap[idx].length - ((uint32_t)(&_loaderEnd)) - sizeof(MemoryRegion_t);
+            currentRegion->base = (void*)(((uintptr_t)currentRegion) + sizeof(MemoryRegion_t));
             break;
         }
     }
 }
 
 static void* lmalloc(uint64_t size) {
-    void* ptr = 0;
-    if (memoryBase && freeMemorySize >= size) {
-        ptr = (void*)memoryBase;
-        memoryBase += size;
-        freeMemorySize -= size;
+    MemoryRegion_t *region = firstMemoryRegion;
+    while ((!region->available || region->size < size + sizeof(MemoryRegion_t)) && region->size != 0 && region->next != NULL) {
+        region = region->next;
     }
-    return ptr;
+    if (region->size < size + sizeof(MemoryRegion_t)) return NULL;
+
+    // If the current region is the last region
+    if (!region->next) {
+        // Create a new region after the current one
+        MemoryRegion_t *newRegion = (MemoryRegion_t *)(uintptr_t)(((uintptr_t)region->base) + size);
+        newRegion->available = 1;
+        newRegion->prev = region;
+        newRegion->next = NULL;
+        newRegion->size = (region->size - size - sizeof(MemoryRegion_t));
+        newRegion->base = (void*)(((uintptr_t)newRegion) + sizeof(MemoryRegion_t));
+
+        region->next = newRegion;
+        region->size = size + sizeof(MemoryRegion_t);
+    }
+
+    // If there's enaugh space to create another region of size MIN_REGION_SIZE. Create one after the current region
+    if (region->size > size + (sizeof(MemoryRegion_t) * 2) + MIN_REGION_SIZE) {
+        MemoryRegion_t *newRegion = (MemoryRegion_t *)(uintptr_t)(((uintptr_t)region->base) + size);
+        newRegion->available = 1;
+        newRegion->prev = region;
+        newRegion->next = region->next;
+        newRegion->size = (region->size - size - sizeof(MemoryRegion_t));
+        newRegion->base = (void*)(((uintptr_t)newRegion) + sizeof(MemoryRegion_t));
+
+        region->next = newRegion;
+        region->size = size + sizeof(MemoryRegion_t);
+    }
+
+    region->available = 0;
+    return region->base;
 }
 
 static void* lmalloc_a(uint64_t size, uint32_t alignment) {
-    if ((((uint32_t)(memoryBase & 0xFFFFFFFF)) % alignment) == 0) return lmalloc(size);
+    MemoryRegion_t *region = firstMemoryRegion;
+    uint64_t adjustment;
 
-    void* ptr = 0;
-    if (!memoryBase || freeMemorySize - (((memoryBase & (0xFFFFFFFFFFFFFFFF - (alignment - 1))) + alignment) - memoryBase) < size) return ptr;
+    while (region) {
+        if (region->available && region->size >= size + sizeof(MemoryRegion_t)) {
+            adjustment = alignment - (((uintptr_t)region->base) % alignment);
+            if (adjustment == alignment) adjustment = 0;
+            if (adjustment != 0 && adjustment < sizeof(MemoryRegion_t)) adjustment += alignment;
+            
+            if (region->size >= size + adjustment) break;
+        }
+        region = region->next;
+    }
+    if (!region) return NULL;
 
-    freeMemorySize -= (((memoryBase & (0xFFFFFFFFFFFFFFFF - (alignment - 1))) + alignment) - memoryBase);
-    memoryBase &= (0xFFFFFFFFFFFFFFFF - (alignment - 1));
-    memoryBase += alignment;
-    ptr = (void*)memoryBase;
-    memoryBase += size;
-    freeMemorySize -= size;
-    return ptr;
+    MemoryRegion_t *alignedRegion = NULL;
+    // If the region isn't aligned create a new, aligned one
+    if (adjustment != 0) {
+        alignedRegion = (MemoryRegion_t *)(uintptr_t)(((uintptr_t)region->base) + adjustment - sizeof(MemoryRegion_t));
+        alignedRegion->available = 0;
+        alignedRegion->prev = region;
+        alignedRegion->next = region->next;
+        alignedRegion->size = (region->size - (adjustment - sizeof(MemoryRegion_t)));
+        alignedRegion->base = (void*)(((uintptr_t)alignedRegion) + sizeof(MemoryRegion_t));
+
+        region->next = alignedRegion;
+        region->size = adjustment - sizeof(MemoryRegion_t);
+    } else {    // Otherwise the address is already aligned
+        alignedRegion = region;
+        alignedRegion->available = 0;
+    }
+
+    // If there's enough space after the aligned region to create a new region - create one
+    if (alignedRegion->size > size + (sizeof(MemoryRegion_t) * 2) + MIN_REGION_SIZE) {
+        MemoryRegion_t *newRegion = (MemoryRegion_t *)(uintptr_t)(((uintptr_t)alignedRegion->base) + size);
+        newRegion->available = 1;
+        newRegion->prev = alignedRegion;
+        newRegion->next = alignedRegion->next;
+        newRegion->size = (alignedRegion->size - size - sizeof(MemoryRegion_t));
+        newRegion->base = (void*)(((uintptr_t)newRegion) + sizeof(MemoryRegion_t));
+
+        alignedRegion->next = newRegion;
+        alignedRegion->size = size + sizeof(MemoryRegion_t);
+    }
+
+    return alignedRegion->base;
+}
+
+static void lfree(void *addr) {
+    MemoryRegion_t *region = (MemoryRegion_t*)(uintptr_t)(((uintptr_t)addr) - sizeof(MemoryRegion_t));
+    region->available = 1;
+    while (region->prev && region->prev->available) {
+        region->prev->next = region->next;
+        region->prev->size += region->size;
+        region = region->prev;
+    }
+
+    MemoryRegion_t *nextRegion = region->next;
+    while (nextRegion && nextRegion->available) {
+        region->size += nextRegion->size;
+        region->next = nextRegion->next;
+        nextRegion = nextRegion->next;
+    }
 }
 
 #endif
