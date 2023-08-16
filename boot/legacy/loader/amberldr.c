@@ -1,10 +1,15 @@
 #include <stdint.h>
+#include <stddef.h>
+
 #include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/VESA.h>
 #include <boot/legacy/loader/disk.h>
 #include <boot/legacy/loader/FS/ISO9660.h>
+#include <boot/legacy/loader/gdt.h>
 
 void loader_main(uint8_t bootDriveNum) {
+	GDT_Initialize();
+
     GetE820MemoryMap();
     InitializeMemoryManager();
     InitializeISO_FS(bootDriveNum);

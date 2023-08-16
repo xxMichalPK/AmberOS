@@ -1,13 +1,14 @@
 [BITS 32]
 section .text
 [global bios_call_wrapper]
-; Those are the offsets set by the 1'st stage bootloader
-%define CODE32_SEG 0x08
-%define DATA32_SEG 0x10
-%define CODE16_SEG 0x18
-%define DATA16_SEG 0x20
-%define TMP_STACK_ADDR 0xF000
+; Those are the offsets set by the loader. They're hard coded but for now
+; I can't figure out a way to make them work without triggering relocation errors
+%define CODE16_SEG 0x08
+%define DATA16_SEG 0x10
+%define CODE32_SEG 0x18
+%define DATA32_SEG 0x20
 
+%define TMP_STACK_ADDR 0xF000
 %define REGS_SIZE 32
 
 ; typedef struct __attribute__((packed)) {
