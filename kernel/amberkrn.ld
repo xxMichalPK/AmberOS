@@ -1,7 +1,12 @@
 OUTPUT_FORMAT("elf64-x86-64")
 ENTRY(AmberStartup)
 
+/* The kernel is loaded to 1MB */
+PHYSICAL_BASE = 0x00100000;
+
 SECTIONS {
+    . = PHYSICAL_BASE;
+    
     __kernel_start = .;
     .text : ALIGN(0x1000) {
         *(.text)
