@@ -39,7 +39,8 @@
 #define GDT_CODE_ACCESS_BYTE    SEG_PRES(1) | SEG_PRIV(0) | SEG_DESCTYPE(1) | SEG_CODE_EXRD
 #define GDT_DATA_ACCESS_BYTE    SEG_PRES(1) | SEG_PRIV(0) | SEG_DESCTYPE(1) | SEG_DATA_RDWR
 
-#define GDT_RMODE_FLAGS         SEG_GRAN(0) | SEG_SIZE(0) | SEG_LONG(0)
+#define GDT_RMODE_FLAGS         SEG_GRAN(1) | SEG_SIZE(0) | SEG_LONG(0)     // For 16bit real mode we have to use the granularity to access
+                                                                            // the addresses of rmode functions in 16bit protected mode
 #define GDT_PMODE_FLAGS         SEG_GRAN(1) | SEG_SIZE(1) | SEG_LONG(0)
 #define GDT_LMODE_FLAGS         SEG_GRAN(1) | SEG_SIZE(0) | SEG_LONG(1)
 
@@ -79,13 +80,13 @@ static void GDT_SetDescriptor(gdt_entry_t *gdt, uint32_t base, uint32_t limit, u
 static gdtr_t *gdtr = NULL;
 static gdt_entry_t *gdt = NULL;
 
-// Those are the offsets to the GDT segments
-static uint16_t GDT_RMODE_CODE;
-static uint16_t GDT_RMODE_DATA;
+// Those are the offsets to the GDT segments. They're initialized with the offsets that the bootloader uses!
+static uint16_t GDT_RMODE_CODE = 0x08;
+static uint16_t GDT_RMODE_DATA = 0x10;
 
-static uint16_t GDT_PMODE_CODE;
-static uint16_t GDT_PMODE_DATA;
-
+static uint16_t GDT_PMODE_CODE = 0x18;
+static uint16_t GDT_PMODE_DATA = 0x20;
+// Those aren't set in the bootloader
 static uint16_t GDT_LMODE_CODE;
 static uint16_t GDT_LMODE_DATA;
 
@@ -101,16 +102,16 @@ static int GDT_Initialize() {
     GDT_SetDescriptor(&gdt[0], 0, 0, 0, 0);
 
     // Set 16bit real mode descriptor values
-    GDT_SetDescriptor(&gdt[1], 0, 0xFFFFF, GDT_CODE_ACCESS_BYTE, GDT_RMODE_FLAGS);
-    GDT_SetDescriptor(&gdt[2], 0, 0xFFFFF, GDT_DATA_ACCESS_BYTE, GDT_RMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[1], 0, 0xFFFFFFFF, GDT_CODE_ACCESS_BYTE, GDT_RMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[2], 0, 0xFFFFFFFF, GDT_DATA_ACCESS_BYTE, GDT_RMODE_FLAGS);
 
     // Set 32bit protected mode descriptor values
-    GDT_SetDescriptor(&gdt[3], 0, 0xFFFFF, GDT_CODE_ACCESS_BYTE, GDT_PMODE_FLAGS);
-    GDT_SetDescriptor(&gdt[4], 0, 0xFFFFF, GDT_DATA_ACCESS_BYTE, GDT_PMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[3], 0, 0xFFFFFFFF, GDT_CODE_ACCESS_BYTE, GDT_PMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[4], 0, 0xFFFFFFFF, GDT_DATA_ACCESS_BYTE, GDT_PMODE_FLAGS);
 
     // Set 64bit long mode descriptor values
-    GDT_SetDescriptor(&gdt[5], 0, 0xFFFFF, GDT_CODE_ACCESS_BYTE, GDT_LMODE_FLAGS);
-    GDT_SetDescriptor(&gdt[6], 0, 0xFFFFF, GDT_DATA_ACCESS_BYTE, GDT_LMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[5], 0, 0xFFFFFFFF, GDT_CODE_ACCESS_BYTE, GDT_LMODE_FLAGS);
+    GDT_SetDescriptor(&gdt[6], 0, 0xFFFFFFFF, GDT_DATA_ACCESS_BYTE, GDT_LMODE_FLAGS);
 
     uint64_t gdt_start = (uint64_t)(uintptr_t)&gdt[0];
     // Calculate the offsets
@@ -141,10 +142,10 @@ static int GDT_Initialize() {
                            mov %%ax, %%gs;\n\t\
                            mov %%ax, %%ss;\n\t\
                            pushl %%ebx;\n\t\
-                           push $.setcs;\n\t\
+                           push $.flush_gdt;\n\t\
                            ljmp *(%%esp);\n\t\
                            \n\t\
-                           .setcs:\n\t\
+                           .flush_gdt:\n\t\
                            add $8, %%esp;\n\t\
                           " :: "a"(GDT_PMODE_DATA), "b"(GDT_PMODE_CODE), "d"(gdtr));
 
