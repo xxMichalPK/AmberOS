@@ -49,6 +49,32 @@ EFI_STATUS SetVideoMode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN hRes, UINTN vRe
     return EFI_SUCCESS;
 }
 
+UINT32 CountSetBits(UINT32 value) {
+    UINT32 count = 0;
+    
+    while (value) {
+        count += value & 1;
+        value >>= 1;
+    }
+    
+    return count;
+}
+
+UINT32 GetGOPBitsPerPixel(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop) {
+    switch (gop->Mode->Info->PixelFormat) {
+        case PixelRedGreenBlueReserved8BitPerColor:
+        case PixelBlueGreenRedReserved8BitPerColor:
+            return 32;
+        case PixelBitMask:
+            // Calculate bpp based on the masks
+            return CountSetBits(gop->Mode->Info->PixelInformation.RedMask) +
+                CountSetBits(gop->Mode->Info->PixelInformation.GreenMask) +
+                CountSetBits(gop->Mode->Info->PixelInformation.BlueMask);
+        default:
+            return 0;
+    }
+}
+
 EFI_STATUS DrawRect(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN _x, UINTN _y, UINTN _w, UINTN _h, UINT32 _color) {
     for (UINTN y = _y; y < _y + _h; y++) {
         for (UINTN x = _x; x < _x + _w; x++) {

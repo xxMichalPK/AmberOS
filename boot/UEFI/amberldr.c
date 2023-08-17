@@ -12,9 +12,7 @@
 #include <boot/UEFI/BootDevice.h>
 #include <boot/UEFI/ISO9660.h>
 #include <boot/UEFI/GraphicsOutputProtocol.h>
-// #include <boot/UEFI/BMP.h>
-// #include <boot/UEFI/GIF.h>
-// #include <boot/UEFI/timer.h>
+#include <boot/bootinfo.h>
 
 EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     EFI_STATUS status;
@@ -94,11 +92,32 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
 		}
 	}
 
-    void (*StartKernel)(UINT32*) = ((__attribute__((sysv_abi)) void (*)(UINT32*))kernelHeader.e_entry);
+    // Prepare the boot information for the kernel
+    BootInfo_t *bootInfo = NULL;
+    status = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, sizeof(BootInfo_t), (void**)&bootInfo);
+    if (EFI_ERROR(status) || !bootInfo) {
+        Print(L"Failed to allocate memory for the boot info structure: %r\n\r", status);
+        return status;
+    }
+
+    UINT32 gopBPP = GetGOPBitsPerPixel(graphics);
+    if (!gopBPP) {
+        uefi_call_wrapper(BS->FreePool, 1, bootInfo);
+        return EFI_UNSUPPORTED;
+    }
+
+    bootInfo->bootType = UEFI;
+    bootInfo->framebuffer.vRes = graphics->Mode->Info->VerticalResolution;
+    bootInfo->framebuffer.hRes = graphics->Mode->Info->HorizontalResolution;
+    bootInfo->framebuffer.size = graphics->Mode->FrameBufferSize;
+    bootInfo->framebuffer.bitsPerPixel = gopBPP;
+    bootInfo->framebuffer.base = graphics->Mode->FrameBufferBase;
+
+    void (*StartKernel)(BootInfo_t*) = ((__attribute__((sysv_abi)) void (*)(BootInfo_t*))kernelHeader.e_entry);
 
     uefi_call_wrapper(BS->ExitBootServices, 1, ImageHandle);
 
-    StartKernel((UINT32*)graphics->Mode->FrameBufferBase);
+    StartKernel(bootInfo);
 
     // If the kernel returned something went wrong
     return EFI_ABORTED;

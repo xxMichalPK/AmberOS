@@ -8,6 +8,7 @@
 #include <boot/legacy/loader/FS/ISO9660.h>
 #include <boot/legacy/loader/gdt.h>
 #include <boot/legacy/loader/paging.h>
+#include <boot/bootinfo.h>
 
 void loader_main(uint8_t bootDriveNum) {
     GetE820MemoryMap();
@@ -53,10 +54,18 @@ void loader_main(uint8_t bootDriveNum) {
 		}
 	}
 
-    void (*StartKernel)(uint32_t*) = ((__attribute__((sysv_abi)) void (*)(uint32_t*))(uintptr_t)kernelHeader.e_entry);
+    BootInfo_t *bootInfo = (BootInfo_t *)lmalloc(sizeof(BootInfo_t));
+    if (!bootInfo) return;
+
+    bootInfo->bootType = BIOS;
+    bootInfo->framebuffer.vRes = gVModeInformation.x_resolution;
+    bootInfo->framebuffer.hRes = gVModeInformation.y_resolution;
+    bootInfo->framebuffer.size = gVModeInformation.x_resolution * gVModeInformation.y_resolution * ((gVModeInformation.bits_per_pixel + 1) / 8);
+    bootInfo->framebuffer.bitsPerPixel = gVModeInformation.bits_per_pixel;
+    bootInfo->framebuffer.base = gVModeInformation.physical_base_pointer;
 
 	// Paging should be enabled only after executing all real mode code!
-	IdentityPaging_Initialize();
+	IdentityPaging_Initialize();    // This function also enables 64bit long mode
 
 	// Jump to long mode and reload the segment registers to use the 64bit segments
     __asm__ __volatile__ ("pushl %%ebx;\n\t\
@@ -72,7 +81,9 @@ void loader_main(uint8_t bootDriveNum) {
                            mov %%ax, %%ss;\n\t\
 						   call *%%ecx;\n\t\
 						   .64halt: jmp .64halt;\n\t\
-                          " :: "a"(GDT_LMODE_DATA), "b"(GDT_LMODE_CODE), "c"((uintptr_t)kernelHeader.e_entry), "D"(gVModeInformation.physical_base_pointer));    
+                          " ::
+                          "a"(GDT_LMODE_DATA), "b"(GDT_LMODE_CODE), // Pass the Long mode code and data segment offsets
+                          "c"((uintptr_t)kernelHeader.e_entry), "D"((uintptr_t)bootInfo)); // 64bit uses System V ABI. We pass the boot info in the edi(rdi) register
 
     for (;;);
 }
