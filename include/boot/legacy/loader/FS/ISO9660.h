@@ -269,8 +269,10 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
             uint32_t dataSectorSize = (directories[dirCount - 1][fIdx].fileSize / ISO_SECTOR_SIZE);
             if (directories[dirCount - 1][fIdx].fileSize % ISO_SECTOR_SIZE != 0) dataSectorSize++;
 
-            if (!(*dataBuffer))
+            if (!(*dataBuffer)) {
                 (*dataBuffer) = lmalloc(dataSectorSize * ISO_SECTOR_SIZE);
+            }
+            
             if (!(*dataBuffer)) {
                 for (uint32_t fd = 0; fd < dirCount; fd++) {
                     for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
@@ -297,7 +299,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
                     lfree(numFilesInDirectory);
                     return -1;
                 }
-                memcpy((void*)((*dataBuffer) + off), (void*)tempDataBuffer, ISO_SECTOR_SIZE);
+                memcpy((void*)(((uintptr_t)(*dataBuffer)) + off), (void*)tempDataBuffer, ISO_SECTOR_SIZE);
             }
 
             *fileSize = directories[dirCount - 1][fIdx].fileSize;

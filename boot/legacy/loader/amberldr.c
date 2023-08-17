@@ -9,6 +9,8 @@
 #include <boot/legacy/loader/gdt.h>
 #include <boot/legacy/loader/paging.h>
 #include <boot/bootinfo.h>
+#include <boot/legacy/loader/configParser.h>
+#include <boot/legacy/loader/intop.h>
 
 void loader_main(uint8_t bootDriveNum) {
     GetE820MemoryMap();
@@ -17,11 +19,31 @@ void loader_main(uint8_t bootDriveNum) {
 	GDT_Initialize();
 	
     ISO_Initialize(bootDriveNum);
+
+    BootInfo_t *bootInfo = (BootInfo_t *)lmalloc(sizeof(BootInfo_t));
+    if (!bootInfo) return;
+
+    // Load the configuration file
+    size_t configFileSize;
+    uint8_t *configFile = (uint8_t*)lmalloc(0x1000);    // There's a bug when using empty buffer so we allocate 4KiB of memory to fit the configuration for now.
+    ISO_ReadFile(bootDriveNum, "/AmberOS/SysConfig/boot.cfg", &configFileSize, (void**)&configFile);
+    
+    // Parse the configuration and store all the needed settings
+    uint8_t *vResString, *hResString, *bppString;
+    uint32_t vRes, hRes, bpp;
+    parseConfig(configFile, "SCREEN SETTINGS\0", "VERTICAL RESOLUTION\0", &vResString);
+    parseConfig(configFile, "SCREEN SETTINGS\0", "HORIZONTAL RESOLUTION\0", &hResString);
+    parseConfig(configFile, "SCREEN SETTINGS\0", "BITS PER PIXEL\0", &bppString);
+    vRes = atoui((char*)vResString);
+    hRes = atoui((char*)hResString);
+    bpp = atoui((char*)bppString);
+
+    // Load the kernel to 1MB
     size_t kernelSize;
     uint8_t *kernel = (uint8_t *)0x00100000;
     ISO_ReadFile(bootDriveNum, "/AmberOS/System/amberkrn.elf", &kernelSize, (void**)&kernel);
 
-	SetVideoMode(1024, 768, 32);
+	SetVideoMode(vRes, hRes, (uint8_t)bpp);
 
 	Elf64_Ehdr kernelHeader;
     memcpy(&kernelHeader, kernel, sizeof(kernelHeader));
@@ -53,9 +75,6 @@ void loader_main(uint8_t bootDriveNum) {
 			}
 		}
 	}
-
-    BootInfo_t *bootInfo = (BootInfo_t *)lmalloc(sizeof(BootInfo_t));
-    if (!bootInfo) return;
 
     bootInfo->bootType = BIOS;
     bootInfo->framebuffer.vRes = gVModeInformation.x_resolution;

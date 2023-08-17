@@ -12,6 +12,8 @@
 #include <boot/UEFI/BootDevice.h>
 #include <boot/UEFI/ISO9660.h>
 #include <boot/UEFI/GraphicsOutputProtocol.h>
+#include <boot/UEFI/configParser.h>
+#include <boot/legacy/loader/intop.h>
 #include <boot/bootinfo.h>
 
 EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
@@ -22,15 +24,6 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
     EFI_GRAPHICS_OUTPUT_PROTOCOL *graphics = NULL;
 
     InitializeLib(ImageHandle, SystemTable);
-
-    status = InitializeGraphics(ImageHandle, &graphics);
-    if (EFI_ERROR(status)) {
-        Print(L"Failed to initialize graphics: %r\n\r", status);
-        return status;
-    }
-
-    status = SetVideoMode(graphics, 1920, 1080, PixelBlueGreenRedReserved8BitPerColor);
-    if (EFI_ERROR(status)) return status;
 
     status = GetBootDeviceHandle(&bootDeviceHandle);
     if (EFI_ERROR(status) || !bootDeviceHandle) {
@@ -50,6 +43,21 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         return status;
     }
 
+    UINT8 *configFile;
+    UINTN configFileSize;
+    status = ReadFile(bootDeviceIO, "/AmberOS/SysConfig/boot.cfg", &configFileSize, (void**)&configFile);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to load the config file into memory: %r\n\r", status);
+        return status;
+    }
+
+    uint8_t *vResString, *hResString;
+    uint32_t vRes, hRes;
+    parseConfig(configFile, "SCREEN SETTINGS\0", "VERTICAL RESOLUTION\0", &vResString);
+    parseConfig(configFile, "SCREEN SETTINGS\0", "HORIZONTAL RESOLUTION\0", &hResString);
+    vRes = atoui((char*)vResString);
+    hRes = atoui((char*)hResString);
+
     UINT8 *kernel;
     UINTN kernelSize;
     status = ReadFile(bootDeviceIO, "/AmberOS/System/amberkrn.elf", &kernelSize, (void**)&kernel);
@@ -57,6 +65,16 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         Print(L"Failed to load the kernel into memory: %r\n\r", status);
         return status;
     }
+
+    status = InitializeGraphics(ImageHandle, &graphics);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to initialize graphics: %r\n\r", status);
+        return status;
+    }
+
+    // In UEFI we always use 32 bits per pixel
+    status = SetVideoMode(graphics, vRes, hRes, PixelBlueGreenRedReserved8BitPerColor);
+    if (EFI_ERROR(status)) return status;
 
     Elf64_Ehdr kernelHeader;
     memcpy(&kernelHeader, kernel, sizeof(kernelHeader));
