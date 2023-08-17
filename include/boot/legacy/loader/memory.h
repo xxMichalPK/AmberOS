@@ -108,24 +108,11 @@ static void InitializeMemoryManager() {
 
 static void* lmalloc(uint64_t size) {
     MemoryRegion_t *region = firstMemoryRegion;
-    while ((!region->available || region->size < size + sizeof(MemoryRegion_t)) && region->size != 0 && region->next != NULL) {
+    while (region) {
+        if (region->available == 1 && region->size >= size + sizeof(MemoryRegion_t)) break;
         region = region->next;
     }
-    if (region->size < size + sizeof(MemoryRegion_t)) return NULL;
-
-    // If the current region is the last region
-    if (!region->next) {
-        // Create a new region after the current one
-        MemoryRegion_t *newRegion = (MemoryRegion_t *)(uintptr_t)(((uintptr_t)region->base) + size);
-        newRegion->available = 1;
-        newRegion->prev = region;
-        newRegion->next = NULL;
-        newRegion->size = (region->size - size - sizeof(MemoryRegion_t));
-        newRegion->base = (void*)(((uintptr_t)newRegion) + sizeof(MemoryRegion_t));
-
-        region->next = newRegion;
-        region->size = size + sizeof(MemoryRegion_t);
-    }
+    if (!region) return NULL;
 
     // If there's enaugh space to create another region of size MIN_REGION_SIZE. Create one after the current region
     if (region->size > size + (sizeof(MemoryRegion_t) * 2) + MIN_REGION_SIZE) {
@@ -149,7 +136,7 @@ static void* lmalloc_a(uint64_t size, uint32_t alignment) {
     uint64_t adjustment;
 
     while (region) {
-        if (region->available && region->size >= size + sizeof(MemoryRegion_t)) {
+        if (region->available == 1 && region->size >= size + sizeof(MemoryRegion_t)) {
             adjustment = alignment - (((uintptr_t)region->base) % alignment);
             if (adjustment == alignment) adjustment = 0;
             if (adjustment != 0 && adjustment < sizeof(MemoryRegion_t)) adjustment += alignment;
@@ -196,14 +183,14 @@ static void* lmalloc_a(uint64_t size, uint32_t alignment) {
 static void lfree(void *addr) {
     MemoryRegion_t *region = (MemoryRegion_t*)(uintptr_t)(((uintptr_t)addr) - sizeof(MemoryRegion_t));
     region->available = 1;
-    while (region->prev && region->prev->available) {
+    while (region->prev && region->prev->available == 1) {
         region->prev->next = region->next;
         region->prev->size += region->size;
         region = region->prev;
     }
 
     MemoryRegion_t *nextRegion = region->next;
-    while (nextRegion && nextRegion->available) {
+    while (nextRegion && nextRegion->available == 1) {
         region->size += nextRegion->size;
         region->next = nextRegion->next;
         nextRegion = nextRegion->next;
