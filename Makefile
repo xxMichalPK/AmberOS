@@ -34,7 +34,7 @@ ISO: build_legacy_boot build_uefi_boot build_kernel
 		-c boot/boot.cat \
 		-b boot/isoboot.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
-		-isohybrid-mbr ./iso/AmberOS/mbr.bin \
+		-isohybrid-mbr ./iso/AmberOS/isohd.bin \
 		-eltorito-alt-boot \
 		-e boot/efiboot.img \
 		-no-emul-boot -isohybrid-gpt-basdat \

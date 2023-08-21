@@ -1,25 +1,16 @@
 [BITS 16]
 
 strncmp16:
-	.cmpLoop:
-		dec cx
-		mov al, [si]
-		mov ah, [di]
-
-		cmp al, ah
-		jne .neq
-
-		cmp cx, 0
-		je .eq
-
-		inc si
-		inc di
-		jmp .cmpLoop
+	push si
+	repe cmpsb
+	jz .eq
 
 	.neq:
-		mov ax, 0
+		pop si
+		xor ax, ax
 		ret
 	
 	.eq:
+		pop si
 		mov ax, 1
 		ret

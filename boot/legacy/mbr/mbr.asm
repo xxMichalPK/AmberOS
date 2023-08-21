@@ -21,9 +21,6 @@
 
 [BITS 16]                               ; We are in 16-bit real mode
 [ORG 0x0600]                            ; Position of this programm in memory
-jmp short start
-dw OS_SIG
-
 start:
     cli                                 ; We do not want to be interrupted
     xor ax, ax                          ; Set ax to 0

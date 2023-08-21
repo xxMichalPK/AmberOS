@@ -5,15 +5,12 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-LEGACY_MAKEFILES = mbr/Makefile \
-				   loader/Makefile \
-				   EXT2/Makefile \
-				   FAT32/Makefile \
-				   ISO9660/Makefile
+OUTPUT_DIR = ./../../../build/AmberOS
+OUTPUT_FILES = mbr.bin isohd.bin
 
-build: $(LEGACY_MAKEFILES)
+build: $(OUTPUT_FILES)
 
-$(LEGACY_MAKEFILES): FORCE
-	@$(MAKE) -C $(@D) --no-print-directory
-
-FORCE:
+%.bin: %.asm
+	@echo "[Compiling $^ --> $@]"
+	@mkdir -p $(OUTPUT_DIR)
+	@nasm -f bin $^ -o $(OUTPUT_DIR)/$@

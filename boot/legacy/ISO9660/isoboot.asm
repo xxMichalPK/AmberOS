@@ -21,9 +21,6 @@
 %define ROOT_DIRECTORY_ENTRY PVD_ADDR + 156
 
 %define ROOT_DIRECTORY_ADDRESS PVD_ADDR + 0x800
-
-; Assuming the isoboot is 
-
 [BITS 16]
 [ORG 0x7C00]
 ; Since this is a ISO 9660 bootloader, make space for the Boot Information Table
@@ -52,6 +49,13 @@ preboot:
 	retf                                ; Far return to next instruction to ensure a normal CS:IP
 
 boot:
+    ; Change the 
+    cmp dh, 'M'
+    jne .start
+    mov BYTE [LBA_MULTIPLIER], 2
+    mov BYTE [SIZE_DIVIDER], 9
+
+    .start:
 	mov ah, 0x00                    ; AH - 0 (change video mode)
 	mov al, 0x03                    ; AL - 3 (80x25 text mode)
 	int 0x10                        ; Set the mode
@@ -64,24 +68,26 @@ boot:
 	; Now when we know the disk extensions are supported
 	; We need to parse the ISO 9660 Primary Volume Descriptor (PVD)
 	mov eax, [BIT_PRIMARY_VOLUME_DESCRIPTOR_LBA]	; Get the PVD address from the Boot Information Table
+    mov cl, [LBA_MULTIPLIER]
+    shl eax, cl
 	mov DWORD [dap_lba_lo], eax             ; Set the LBA address
-	mov WORD [dap_sector_count], 1          ; Load 1, 2KiB Long sector (The entire PVD)
+    mov eax, 2048
+    mov cl, [SIZE_DIVIDER]
+    shr eax, cl
+	mov WORD [dap_sector_count], ax         ; Load 1, 2KiB Long sector (The entire PVD)
 	mov WORD [dap_segment], 0               ; Read to current segment (0)
 	mov WORD [dap_offset], PVD_ADDR         ; Read to address defined as PVD_ADDR
 	call LBA_Read                           ; Call the function to read the disk
 
     ; Read the root directory
     mov eax, DWORD [ROOT_DIRECTORY_ENTRY + 2]   ; Root directory LBA address
+    mov cl, [LBA_MULTIPLIER]
+    shl eax, cl
     mov DWORD [dap_lba_lo], eax             ; Set the LBA address
     mov eax, DWORD [ROOT_DIRECTORY_ENTRY + 10]  ; Root directory size (in Bytes), convert it to number of sectors
     push eax                                ; Save the original size
-    mov ebx, 2048
-    xor edx, edx
-    div ebx
-    cmp edx, 0
-    je .sizeOK
-    inc ax
-    .sizeOK:
+    mov cl, [SIZE_DIVIDER]
+    shr eax, cl
     push ax                                 ; Save this for later
     mov WORD [dap_sector_count], ax         ; The sector size is now in ax
     mov WORD [dap_segment], 0               ; Read to current segment (0)
@@ -112,7 +118,7 @@ boot:
     pop ebx
     mov eax, ebx
     mov bx, 0x1000
-    mov es, bx
+    mov fs, bx
     mov ebx, 0x0000
     mov si, loaderName
     mov dl, [loaderName.len]
@@ -150,6 +156,9 @@ bootDirName: db "boot"
     .len: db 4
 loaderName: db "amberldr.bin"
     .len: db 12
+
+LBA_MULTIPLIER: db 0
+SIZE_DIVIDER:   db 11
 
 startMSG: db "AmberOS v0.1a (Tyro) Live", 0x0A, 0x0D
 		  db "(C)Copyright Michal Pazurek 2023", 0x0A, 0x0D, 0x0A, 0x0D
