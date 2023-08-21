@@ -102,7 +102,7 @@ static int parseConfig(uint8_t* data, char* section, char* setting, uint8_t **ou
             data++;
             while (*data == ' ') data++;
             int settingLen = getSettingLen((char*)data);
-            *outValue = (uint8_t*)lmalloc(settingLen + 1);
+            (*outValue) = (uint8_t*)lmalloc(settingLen + 1);
             memcpy(*outValue, data, settingLen);
             (*outValue)[settingLen] = '\0';
             return settingLen;
