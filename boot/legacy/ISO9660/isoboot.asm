@@ -35,6 +35,7 @@ BIT_RESERVED						times 40 db 0x00
 
 preboot:
 	mov [bootDrive], dl                 ; Set boot Drive
+    mov [bootType], dh
 
 	cli                                 ; Clear interrupts to avoid interrupts while 
 										; changing important registers and setting stack
@@ -152,6 +153,8 @@ RMODE_INCLUDE 'ISO9660.inc'
 RMODE_INCLUDE 'gdt.inc'
 RMODE_INCLUDE 'a20.inc'
 
+
+bootType: db 0                  ; M - booted as Hard Drive, other - booted as CD
 bootDirName: db "boot"
     .len: db 4
 loaderName: db "amberldr.bin"
@@ -182,6 +185,7 @@ JumpToLoader:
     
     ; Send the boot drive number to the loader
     xor edx, edx
+    mov dh, [bootType]
     mov dl, [bootDrive]
     push edx
     jmp 0x10000         ; Jump to the loader

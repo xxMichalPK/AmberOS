@@ -12,7 +12,13 @@
 #include <boot/legacy/loader/configParser.h>
 #include <boot/legacy/loader/intop.h>
 
-void loader_main(uint8_t bootDriveNum) {
+uint8_t bootDiskType = 0;
+uint8_t useBigPages = 0;    // If the loader should use 1G pages for mapping memory (only if supported)
+
+void loader_main(uint16_t diskInfo) {
+    uint8_t bootDriveNum = diskInfo & 0xFF;
+    bootDiskType = (diskInfo >> 8) & 0xFF;
+
     GetE820MemoryMap();
     InitializeMemoryManager();
 
@@ -29,14 +35,16 @@ void loader_main(uint8_t bootDriveNum) {
     ISO_ReadFile(bootDriveNum, "/AmberOS/SysConfig/boot.cfg", &configFileSize, (void**)&configFile);
     
     // Parse the configuration and store all the needed settings
-    uint8_t *vResString, *hResString, *bppString;
+    uint8_t *vResString, *hResString, *bppString, *useBigPagesString;
     uint32_t vRes, hRes, bpp;
     parseConfig(configFile, "SCREEN SETTINGS\0", "VERTICAL RESOLUTION\0", &vResString);
     parseConfig(configFile, "SCREEN SETTINGS\0", "HORIZONTAL RESOLUTION\0", &hResString);
     parseConfig(configFile, "SCREEN SETTINGS\0", "BITS PER PIXEL\0", &bppString);
+    parseConfig(configFile, "MEMORY SETTINGS\0", "USE 1G PAGES\0", &useBigPagesString);
     vRes = atoui((char*)vResString);
     hRes = atoui((char*)hResString);
     bpp = atoui((char*)bppString);
+    if (memcmp(useBigPagesString, "true", 4) == 0) useBigPages = 1;
 
     // Load the kernel to 1MB
     size_t kernelSize;

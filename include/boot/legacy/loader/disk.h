@@ -3,6 +3,12 @@
 
 #include <boot/legacy/loader/BIOS.h>
 
+#define DISK_TYPE_HD 0x4D
+
+extern uint8_t bootDiskType;
+
+#define DISK_SECTOR_SZIE ((bootDiskType == DISK_TYPE_HD ? 512 : 2048))
+
 typedef struct {
     uint8_t packetSize;
     uint8_t zero;

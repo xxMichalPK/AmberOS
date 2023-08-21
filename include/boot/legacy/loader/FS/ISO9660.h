@@ -8,7 +8,8 @@
 
 #define ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA 16
 #define ISO_SECTOR_SIZE 2048
-#define ISO_LBA(x) (x)      // In the legacy version the interrupt uses the actual sector size (2048B)
+#define ISO_BYTES_TO_SECTORS(x) (bootDiskType == DISK_TYPE_HD ? (x % 512 == 0 ? x / 512 : x / 512 + 1) : (x % ISO_SECTOR_SIZE == 0 ? x / ISO_SECTOR_SIZE : x / ISO_SECTOR_SIZE + 1))
+#define ISO_LBA(x) (bootDiskType == DISK_TYPE_HD ? x * 4 : x)
 
 // The memory allocator works above 1MB but with the functions we are limited to the memory below 1MB
 #define ISO_DIRECTORY_MAX_SIZE 4096     // This is the maximum size of the directory entry on stack
@@ -85,7 +86,7 @@ static int ISO_Initialize(uint8_t diskNum) {
     // Use a temporary data buffer to avoid -Waddress-of-packed-member warning
     uint8_t dataBuffer[ISO_SECTOR_SIZE];
 
-    if (ReadSectors(diskNum, ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA, 1, (uint32_t*)dataBuffer) != 0) {
+    if (ReadSectors(diskNum, ISO_LBA(ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA), ISO_BYTES_TO_SECTORS(ISO_SECTOR_SIZE), (uint32_t*)dataBuffer) != 0) {
         lfree(pvd);
         pvd = NULL;
         return -1;
@@ -98,13 +99,10 @@ static int ISO_Initialize(uint8_t diskNum) {
 static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
     if (!dirSize) return -1;
 
-    uint32_t dirSectorSize = dirSize / ISO_SECTOR_SIZE;
-    if (dirSize % ISO_SECTOR_SIZE != 0) dirSectorSize++;
-
-    uint8_t *rawDirectoryData = (uint8_t *)lmalloc(dirSectorSize * ISO_SECTOR_SIZE * sizeof(uint8_t));
+    uint8_t *rawDirectoryData = (uint8_t *)lmalloc(ISO_BYTES_TO_SECTORS(dirSize) * DISK_SECTOR_SZIE * sizeof(uint8_t));
     if (!rawDirectoryData) return -1;
     // Read the raw data into the array
-    if (ReadSectors(diskNum, dirLBA, dirSectorSize, (uint32_t*)rawDirectoryData) != 0) {
+    if (ReadSectors(diskNum, ISO_LBA(dirLBA), ISO_BYTES_TO_SECTORS(dirSize), (uint32_t*)rawDirectoryData) != 0) {
         lfree(rawDirectoryData);
         return -1;
     }
@@ -287,7 +285,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
             }
 
             for (uint32_t currentLBA = directories[dirCount - 1][fIdx].extentLBA, off = 0; currentLBA < directories[dirCount - 1][fIdx].extentLBA + dataSectorSize; currentLBA++, off += ISO_SECTOR_SIZE) {
-                if (ReadSectors(diskNum, currentLBA, 1, (uint32_t*)tempDataBuffer) != 0) {
+                if (ReadSectors(diskNum, ISO_LBA(currentLBA), ISO_BYTES_TO_SECTORS(ISO_SECTOR_SIZE), (uint32_t*)tempDataBuffer) != 0) {
                     for (uint32_t fd = 0; fd < dirCount; fd++) {
                         for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
                             lfree(directories[fd][ff].fileName);
