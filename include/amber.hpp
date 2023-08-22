@@ -2,7 +2,7 @@
 #define __AMBER_HPP__
 
 #include <stdint.h>
-#include <cstddef>
+#include <stddef.h>
 
 // System includes
 #include <ambererr.hpp>

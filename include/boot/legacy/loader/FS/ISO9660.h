@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/disk.h>
+#include <ambererr.hpp>
 
 #define ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA 16
 #define ISO_SECTOR_SIZE 2048
@@ -79,9 +80,9 @@ typedef struct ISO_DirectoryEntry {
 } __attribute__((packed)) ISO_DirectoryEntry_t;
 
 static ISO_Primary_Volume_Descriptor_t *pvd = NULL;
-static int ISO_Initialize(uint8_t diskNum) {
+static AMBER_STATUS ISO_Initialize(uint8_t diskNum) {
     pvd = (ISO_Primary_Volume_Descriptor_t *)lmalloc(ISO_SECTOR_SIZE);
-    if (!pvd) return -1;
+    if (!pvd) return AMBER_OUT_OF_MEMORY;
 
     // Use a temporary data buffer to avoid -Waddress-of-packed-member warning
     uint8_t dataBuffer[ISO_SECTOR_SIZE];
@@ -89,22 +90,22 @@ static int ISO_Initialize(uint8_t diskNum) {
     if (ReadSectors(diskNum, ISO_LBA(ISO_PRIMARY_VOLUME_DESCRIPTOR_LBA), ISO_BYTES_TO_SECTORS(ISO_SECTOR_SIZE), (uint32_t*)dataBuffer) != 0) {
         lfree(pvd);
         pvd = NULL;
-        return -1;
+        return AMBER_READ_ERROR;
     }
 
     memcpy(pvd, dataBuffer, ISO_SECTOR_SIZE);
-    return 0;
+    return AMBER_SUCCESS;
 }
 
-static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
-    if (!dirSize) return -1;
+static AMBER_STATUS ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint32_t dirSize, uint32_t *entryCount, ISO_DirectoryEntry_t **directory) {
+    if (!dirSize) return AMBER_INVALID_ARGUMENT;
 
     uint8_t *rawDirectoryData = (uint8_t *)lmalloc(ISO_BYTES_TO_SECTORS(dirSize) * DISK_SECTOR_SZIE * sizeof(uint8_t));
-    if (!rawDirectoryData) return -1;
+    if (!rawDirectoryData) return AMBER_OUT_OF_MEMORY;
     // Read the raw data into the array
     if (ReadSectors(diskNum, ISO_LBA(dirLBA), ISO_BYTES_TO_SECTORS(dirSize), (uint32_t*)rawDirectoryData) != 0) {
         lfree(rawDirectoryData);
-        return -1;
+        return AMBER_READ_ERROR;
     }
 
     // Get the number of all entries in directory
@@ -121,7 +122,7 @@ static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint
     *directory = (ISO_DirectoryEntry_t*)lmalloc(numEntries * sizeof(ISO_DirectoryEntry_t));
     if (!directory) {
         lfree(rawDirectoryData);
-        return -1;
+        return AMBER_OUT_OF_MEMORY;
     }
 
     // Copy the raw data to the structure
@@ -153,7 +154,7 @@ static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint
             }
             lfree(*directory);
             lfree(rawDirectoryData);
-            return -1;
+            return AMBER_OUT_OF_MEMORY;
         }
 
         if (rawDirectoryData[entryPos + 33] != 0 && rawDirectoryData[entryPos + 33] != 1)
@@ -167,12 +168,14 @@ static int ISO_ParseDirectory(uint8_t diskNum, const uint32_t dirLBA, const uint
     }
 
     lfree(rawDirectoryData);
-    return 0;
+    return AMBER_SUCCESS;
 }
 
-static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** dataBuffer) {
+static AMBER_STATUS ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** dataBuffer) {
     // We have to specify the absolute file path starting with '/'
-    if (path[0] != '/') return -1;
+    if (path[0] != '/') return AMBER_INVALID_ARGUMENT;
+
+    AMBER_STATUS status;
 
     uint32_t dirCount = 0;
     uint32_t dirPos = 0;
@@ -183,7 +186,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
 
     uint32_t *dirNameLenghts = NULL;
     dirNameLenghts = (uint32_t*)lmalloc((dirCount + 1) * sizeof(uint32_t));
-    if (!dirNameLenghts) return -1;
+    if (!dirNameLenghts) return AMBER_OUT_OF_MEMORY;
 
     for (uint32_t i = 0; i < dirCount + 1; i++) {
         dirNameLenghts[i] = 0;
@@ -201,7 +204,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
     directories = (ISO_DirectoryEntry_t**)lmalloc(dirCount * sizeof(ISO_DirectoryEntry_t*));
     if (!directories) {
         lfree(dirNameLenghts);
-        return -1;
+        return AMBER_OUT_OF_MEMORY;
     }
 
     uint32_t *numFilesInDirectory = NULL;
@@ -209,18 +212,18 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
     if (!numFilesInDirectory) {
         lfree(directories);
         lfree(dirNameLenghts);
-        return -1;
+        return AMBER_OUT_OF_MEMORY;
     }
 
     // First directory is always the root directory
-    if (ISO_ParseDirectory(diskNum, pvd->rootDirEntry[2] | pvd->rootDirEntry[3] << 8 | pvd->rootDirEntry[4] << 16 | pvd->rootDirEntry[5] << 24,
+    status = ISO_ParseDirectory(diskNum, pvd->rootDirEntry[2] | pvd->rootDirEntry[3] << 8 | pvd->rootDirEntry[4] << 16 | pvd->rootDirEntry[5] << 24,
                                pvd->rootDirEntry[10] | pvd->rootDirEntry[11] << 8 | pvd->rootDirEntry[12] << 16 | pvd->rootDirEntry[13] << 24,
-                               &numFilesInDirectory[0], &directories[0]) != 0
-    ) {
+                               &numFilesInDirectory[0], &directories[0]);
+    if (AMBER_ERROR(status)) {
         lfree(numFilesInDirectory);
         lfree(directories);
         lfree(dirNameLenghts);
-        return -1;
+        return status;
     }
 
     path++; // Skip the first slash '/'
@@ -229,7 +232,8 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
 
         for (uint32_t fIdx = 0; fIdx < numFilesInDirectory[d]; fIdx++) {
             if (memcmp(directories[d][fIdx].fileName, path, dirNameLenghts[d + 1]) == 0) {
-                if (ISO_ParseDirectory(diskNum, directories[d][fIdx].extentLBA, directories[d][fIdx].fileSize, &numFilesInDirectory[d + 1], &directories[d + 1]) != 0) {
+                status = ISO_ParseDirectory(diskNum, directories[d][fIdx].extentLBA, directories[d][fIdx].fileSize, &numFilesInDirectory[d + 1], &directories[d + 1]);
+                if(AMBER_ERROR(status)) {
                     for (uint32_t fd = 0; fd <= d; fd++) {
                         for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
                             lfree(directories[fd][ff].fileName);
@@ -239,7 +243,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
                     lfree(directories);
                     lfree(dirNameLenghts);
                     lfree(numFilesInDirectory);
-                    return -1;
+                    return status;
                 }
 
                 path += dirNameLenghts[d + 1] + 1;
@@ -248,6 +252,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
         }
 
         if (!exists) {
+            *fileSize = 0;
             for (uint32_t fd = 0; fd <= d; fd++) {
                 for (uint32_t ff = 0; ff < numFilesInDirectory[fd]; ff++) {
                     lfree(directories[fd][ff].fileName);
@@ -257,7 +262,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
             lfree(directories);
             lfree(dirNameLenghts);
             lfree(numFilesInDirectory);
-            return -1;
+            return AMBER_FILE_NOT_FOUND;
         }
     }
 
@@ -281,7 +286,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
                 lfree(directories);
                 lfree(dirNameLenghts);
                 lfree(numFilesInDirectory);
-                return -1;
+                return AMBER_OUT_OF_MEMORY;
             }
 
             for (uint32_t currentLBA = directories[dirCount - 1][fIdx].extentLBA, off = 0; currentLBA < directories[dirCount - 1][fIdx].extentLBA + dataSectorSize; currentLBA++, off += ISO_SECTOR_SIZE) {
@@ -295,7 +300,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
                     lfree(directories);
                     lfree(dirNameLenghts);
                     lfree(numFilesInDirectory);
-                    return -1;
+                    return AMBER_READ_ERROR;
                 }
                 memcpy((void*)(((uintptr_t)(*dataBuffer)) + off), (void*)tempDataBuffer, ISO_SECTOR_SIZE);
             }
@@ -310,7 +315,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
             lfree(directories);
             lfree(dirNameLenghts);
             lfree(numFilesInDirectory);
-            return 0;
+            return AMBER_SUCCESS;
         }
     }
 
@@ -324,7 +329,7 @@ static int ISO_ReadFile(uint8_t diskNum, char *path, uint32_t *fileSize, void** 
     lfree(directories);
     lfree(dirNameLenghts);
     lfree(numFilesInDirectory);
-    return -1;
+    return AMBER_FILE_NOT_FOUND;
 }
 
 static size_t ISO_GetFileSize(uint8_t diskNum, char *path) {

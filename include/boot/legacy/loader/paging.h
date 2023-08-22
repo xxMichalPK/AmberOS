@@ -6,6 +6,7 @@
 
 #include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/gdt.h>
+#include <ambererr.hpp>
 
 #define SMALL_PAGE_SIZE 0x1000      // 4KiB
 #define MEDIUM_PAGE_SIZE 0x200000   // 2MiB
@@ -36,7 +37,7 @@ extern uint8_t useBigPages;
 
 // For saving space, the loader creates the bigger 2MB pages or 1GB pages if requested and supported!
 // It identity maps the first 4GB or 512GB of memory depending on support and requested page size
-static int IdentityPaging_Initialize() {
+static AMBER_STATUS IdentityPaging_Initialize() {
     uint8_t use1Gpages = 0;
     if (useBigPages) {
         uint32_t edx;
@@ -47,6 +48,7 @@ static int IdentityPaging_Initialize() {
     uint64_t *pd = NULL;
     if (use1Gpages == 0) {  // If we don't use 1G pages create the page directory and fill it with 2MB pages
         pd = (uint64_t*)lmalloc_a(0x4000, 0x1000);
+        if (!pd) return AMBER_OUT_OF_MEMORY;
 
         for (uint64_t i = 0, p = 0; i < 0x4000 / sizeof(uint64_t); i++) {
             pd[i] = PAGE_ADDR(p) | PAGE_PRESENT(1) | PAGE_RW(1) | PAGE_BIG(1);
@@ -55,6 +57,10 @@ static int IdentityPaging_Initialize() {
     }
 
     uint64_t *pdpt = (uint64_t*)lmalloc_a(0x1000, 0x1000);
+    if (!pdpt) {
+        if (pd) lfree(pd);
+        return AMBER_OUT_OF_MEMORY;
+    }
     // If we shouldn't use 1G pages
     if (use1Gpages == 0) {  // Fill the Page Directory Pointer Table with the appropriate page directories
         pdpt[0] = PAGE_ADDR((uint64_t)(uintptr_t)pd) | PAGE_PRESENT(1) | PAGE_RW(1);
@@ -72,6 +78,12 @@ static int IdentityPaging_Initialize() {
     }
 
     uint64_t *pml4 = (uint64_t*)lmalloc_a(0x1000, 0x1000);
+    if (!pml4) {
+        if (pd) lfree(pd);
+        lfree(pdpt);
+        return AMBER_OUT_OF_MEMORY;
+    }
+
     pml4[0] = PAGE_ADDR((uint64_t)(uintptr_t)pdpt) | PAGE_PRESENT(1) | PAGE_RW(1);
 
     // Enable PAE
@@ -91,7 +103,7 @@ static int IdentityPaging_Initialize() {
     // Enable paging
     __asm__ __volatile__ ("mov %%ebx, %%cr0" :: "b"((1 << 31) | (1 << 0)));
 
-    return 0;
+    return AMBER_SUCCESS;
 }
 
 #endif

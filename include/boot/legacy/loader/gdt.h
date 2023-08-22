@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <boot/legacy/loader/memory.h>
+#include <ambererr.hpp>
 
 #define GDT_ENTRY_COUNT 7
 
@@ -90,9 +91,9 @@ static uint16_t GDT_PMODE_DATA = 0x20;
 static uint16_t GDT_LMODE_CODE;
 static uint16_t GDT_LMODE_DATA;
 
-static int GDT_Initialize() {
+static AMBER_STATUS GDT_Initialize() {
     gdt = (gdt_entry_t*)lmalloc(GDT_ENTRY_COUNT * sizeof(gdt_entry_t));
-    if (!gdt) return -1;
+    if (!gdt) return AMBER_OUT_OF_MEMORY;
 
     for (uint32_t i = 0; i < GDT_ENTRY_COUNT * sizeof(gdt_entry_t); i++) {
         *((uint8_t*)gdt + i) = 0;
@@ -128,7 +129,7 @@ static int GDT_Initialize() {
     if (!gdtr) {
         lfree(gdt);
         gdt = NULL;
-        return -1;
+        return AMBER_OUT_OF_MEMORY;
     }
 
     gdtr->size = GDT_ENTRY_COUNT * sizeof(gdt_entry_t) - 1;
@@ -149,7 +150,7 @@ static int GDT_Initialize() {
                            add $8, %%esp;\n\t\
                           " :: "a"(GDT_PMODE_DATA), "b"(GDT_PMODE_CODE), "d"(gdtr));
 
-    return 0;
+    return AMBER_SUCCESS;
 }
 
 #endif

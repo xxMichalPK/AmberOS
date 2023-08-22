@@ -2,12 +2,16 @@
 #define __AMBERERR_HPP__
 
 #include <stdint.h>
-#include <cstddef>
+#include <stddef.h>
 
 typedef size_t AMBER_STATUS;
 
 #ifndef MAX_BIT
-    #define MAX_BIT 0x8000000000000000ULL
+    #ifdef __x86_64__
+        #define MAX_BIT 0x8000000000000000ULL
+    #else
+        #define MAX_BIT 0x80000000U
+    #endif
 #endif
 
 #ifndef ENCODE_ERROR
@@ -15,7 +19,7 @@ typedef size_t AMBER_STATUS;
 #endif
 
 #ifndef AMBER_ERROR
-    #define AMBER_ERROR(_code) (((int32_t)(AMBER_STATUS)(_code)) < 0)
+    #define AMBER_ERROR(_code) ((_code) & MAX_BIT)
 #endif
 
 
@@ -25,6 +29,8 @@ typedef size_t AMBER_STATUS;
 #define AMBER_UNKNOWN_ERROR         ENCODE_ERROR(1)
 #define AMBER_INVALID_ARGUMENT      ENCODE_ERROR(2)
 #define AMBER_LOAD_ERROR            ENCODE_ERROR(3)
+#define AMBER_READ_ERROR            ENCODE_ERROR(4)
+#define AMBER_WRITE_ERROR           ENCODE_ERROR(5)
 
 // Resource errors
 #define AMBER_FILE_NOT_FOUND        ENCODE_ERROR(20)

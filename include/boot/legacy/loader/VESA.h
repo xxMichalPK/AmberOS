@@ -4,6 +4,7 @@
 #include <boot/legacy/loader/BIOS.h>
 #include <boot/legacy/loader/memory.h>
 #include <boot/legacy/loader/math.h>
+#include <ambererr.hpp>
 
 typedef struct {
    uint8_t signature[4];        // == "VESA"
@@ -77,7 +78,7 @@ typedef struct {
 
 static VBE_INFO_t gVBEInformation __attribute__((aligned(0x100)));
 static VBE_MODE_INFO_t gVModeInformation __attribute__((aligned(0x100)));
-static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
+static AMBER_STATUS SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
     regs.ds = RMODE_SEGMENT(&SetVideoMode);
@@ -89,8 +90,8 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     regs.eax = 0x4F00;
     regs.edi = RMODE_OFFSET(&gVBEInformation);
     bios_call_wrapper(0x10, &regs, &outRegs);
-    if (memcmp(gVBEInformation.signature, "VESA", 4) != 0) return -1;
-    if (gVBEInformation.version < 0x0200) return -1;
+    if (memcmp(gVBEInformation.signature, "VESA", 4) != 0) return AMBER_CONFIGURATION_ERROR;
+    if (gVBEInformation.version < 0x0200) return AMBER_UNSUPPORTED_FEATURE;
 
     // If we are here the VBE is supported!
     // Find the requested video mode or the closest fit...
@@ -140,7 +141,7 @@ static int SetVideoMode(uint32_t hRes, uint32_t vRes, uint8_t bpp) {
     regs.ecx = 0;
     regs.edi = 0;
     bios_call_wrapper(0x10, &regs, &outRegs);
-    return 0;
+    return AMBER_SUCCESS;
 }
 
 #endif

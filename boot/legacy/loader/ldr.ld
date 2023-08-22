@@ -24,6 +24,11 @@ SECTIONS {
         *(.bss)
     }
 
+    /* Align the padding to 4KiB even though it needs only 2KiB alignment */
+    .padding : ALIGN(0x1000) {
+        *(.padding)
+    }
+
     _loaderEnd = .;
 
     /DISCARD/ : { *(.fini_array*) *(.comment) }

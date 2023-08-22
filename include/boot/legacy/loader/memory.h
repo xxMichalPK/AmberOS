@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <boot/legacy/loader/BIOS.h>
+#include <ambererr.hpp>
 
 #define E820_MAX_ENTRIES 128
 #define MIN_REGION_SIZE 0x10    // This is only used to split one memory region into 2
@@ -38,7 +39,7 @@ static inline int memcmp(const void* aptr, const void* bptr, uint32_t n){
 
 static uint32_t gE20MemoryMapEntryCount;
 static E20_MemoryMap_t gE20MemoryMap[E820_MAX_ENTRIES];
-static int GetE820MemoryMap() {
+static AMBER_STATUS GetE820MemoryMap() {
     rmode_regs_t regs, outRegs;
     // Initialize all the segments with the segment of current address
     regs.ds = RMODE_SEGMENT(&GetE820MemoryMap);
@@ -52,7 +53,7 @@ static int GetE820MemoryMap() {
     regs.edi = RMODE_OFFSET(&gE20MemoryMap[0]);
     gE20MemoryMap[0].ACPI_Attr = 1;         // Force valid ACPI 3.x entry
     bios_call_wrapper(0x15, &regs, &outRegs);
-    if (outRegs.eax != 0x534D4150 || outRegs.ebx == 0) return -1;
+    if (outRegs.eax != 0x534D4150 || outRegs.ebx == 0) return AMBER_UNSUPPORTED_FEATURE;
 
     gE20MemoryMapEntryCount++;
     uint32_t entryIndex = 1;
@@ -70,7 +71,7 @@ static int GetE820MemoryMap() {
         gE20MemoryMapEntryCount++;
     }
 
-    return 0;
+    return AMBER_SUCCESS;
 }
 
 // Allocator stuff
@@ -86,7 +87,7 @@ static MemoryRegion_t* firstMemoryRegion = NULL;
 static uint64_t currentMemoryRegionIdx = 0;
 
 // Simple linked list allocator
-static void InitializeMemoryManager() {
+static AMBER_STATUS InitializeMemoryManager() {
     for (uint32_t idx = 0; idx < gE20MemoryMapEntryCount; idx++) {
         if (gE20MemoryMap[idx].type == 1 &&
             ((uint32_t)(&_loaderEnd)) >= gE20MemoryMap[idx].baseAddress && 
@@ -101,9 +102,11 @@ static void InitializeMemoryManager() {
             currentRegion->next = NULL;
             currentRegion->size = gE20MemoryMap[idx].baseAddress + gE20MemoryMap[idx].length - ((uint32_t)(&_loaderEnd)) - sizeof(MemoryRegion_t);
             currentRegion->base = (void*)(((uintptr_t)currentRegion) + sizeof(MemoryRegion_t));
-            break;
+            return AMBER_SUCCESS;
         }
     }
+
+    return AMBER_OUT_OF_MEMORY;
 }
 
 static void* lmalloc(uint64_t size) {
