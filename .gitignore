@@ -6,9 +6,11 @@
 /notes/
 /notes/*
 
-# Ignore build directory
+# Ignore build directories
 /build/
 /build/*
+/obj/
+/obj/*
 
 # Ignore the ISO directory needed for ISO file creation
 /iso/
@@ -18,6 +20,6 @@
 /*.iso
 
 # Ignore files used for debugging
-/bochsrc.bxrc
+/*.bxrc
 /bx_enh_dbg.ini
 /debug.bat

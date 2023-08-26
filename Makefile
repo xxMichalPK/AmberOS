@@ -64,7 +64,10 @@ run_UEFI: ISO
 	@qemu-system-x86_64 -cpu qemu64 -drive if=pflash,format=raw,unit=0,file="./tools/OVMFbin/OVMF_CODE-pure-efi.fd",readonly=on \
 		-drive if=pflash,format=raw,unit=1,file="./tools/OVMFbin/OVMF_VARS-pure-efi.fd" -hda $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
 
+debug: ISO
+	@bochs -q -f ./bochsrc.bxrc
+
 .PHONY:
 clean:
 	@echo "[Cleaning build files...]"
-	@rm -rf build iso *.iso
+	@rm -rf build obj iso *.iso
