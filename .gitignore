@@ -23,3 +23,7 @@
 /*.bxrc
 /bx_enh_dbg.ini
 /debug.bat
+
+# Ignore testing files
+/tests/
+/tests/*

@@ -10,7 +10,8 @@ OBJ_DIR 	= $(PROJECT_DIR)/obj/kernel
 OBJ_FILES 	= $(OBJ_DIR)/cpuid.o \
 			  $(OBJ_DIR)/sse.o \
 			  $(OBJ_DIR)/avx.o \
-			  $(OBJ_DIR)/ermsb.o
+			  $(OBJ_DIR)/ermsb.o \
+			  $(OBJ_DIR)/tsc.o
 
 build: $(OBJ_FILES)
 	@echo "$(COLOR_OK)[CPU kernel components compiled]$(COLOR_RESET)"
