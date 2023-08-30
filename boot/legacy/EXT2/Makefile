@@ -6,4 +6,4 @@
 # */
 
 build:
-	@echo "[EXT2 boot support comming soon...]"
+	@echo "$(COLOR_INFO)[EXT2 boot support comming soon]$(COLOR_RESET)"

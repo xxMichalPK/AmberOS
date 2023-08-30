@@ -7,7 +7,7 @@
 
 ARCH            = $(shell uname -m | sed s,i[3456789]86,ia32,)
 
-AMBER_INC		= ../../include/
+AMBER_INC		= $(INCLUDE_DIR)
 EFIINC          = /usr/include/efi
 EFIINCS         = -I$(EFIINC) -I$(EFIINC)/$(ARCH) -I$(EFIINC)/protocol -I$(AMBER_INC)
 EFILIB          = /usr/lib
@@ -21,24 +21,28 @@ ifeq ($(ARCH),x86_64)
   CFLAGS += -DEFI_FUNCTION_WRAPPER
 endif
 
-OUTPUT_DIR = ./../../build/AmberOS/EFI/BOOT
-OUTPUT_FILE = amberldr.EFI
-BOOT_FILE = BOOTX64.EFI
+OUTPUT_DIR 	= $(PROJECT_DIR)/build/AmberOS/EFI/BOOT
+OBJ_DIR 	= $(PROJECT_DIR)/obj/boot
+
+OUTPUT_FILE	= $(OUTPUT_DIR)/BOOTX64.EFI
+OBJ_FILE	= $(OBJ_DIR)/BOOTX64.o
 
 build: $(OUTPUT_FILE)
+	@echo "$(COLOR_OK)[UEFI loader compiled]$(COLOR_RESET)"
 
-%.o: %.c
-	@echo "[Compiling $^ --> $@]"
-	@mkdir -p $(OUTPUT_DIR)
-	@gcc $(CFLAGS) -c $^ -o $@
+$(OBJ_DIR)/%.o: %.c
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
+	@$(CC) $(CFLAGS) -c $^ -o $@
 
-%.so: %.o
-	@echo "[Compiling $^ --> $@]"
-	@ld $(LDFLAGS) $^ -o $@ -lefi -lgnuefi
+$(OBJ_DIR)/%.so: $(OBJ_DIR)/%.o
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
+	@$(LD) $(LDFLAGS) $^ -o $@ -lefi -lgnuefi
 
-%.EFI: %.so
-	@echo "[Compiling $^ --> $@]"
-	@mkdir -p $(OUTPUT_DIR)
+$(OUTPUT_DIR)/%.EFI: $(OBJ_DIR)/%.so
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
 	@objcopy -j .text -j .sdata -j .data -j .dynamic \
-	-j .dynsym -j .rel -j .rela -j .reloc \
-	--target=efi-app-$(ARCH) $^ $(OUTPUT_DIR)/$(BOOT_FILE)
+		-j .dynsym -j .rel -j .rela -j .reloc \
+		--target=efi-app-$(ARCH) $^ $(OUTPUT_FILE)

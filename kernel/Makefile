@@ -5,26 +5,30 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-COMPONENTS = cpu/ memory/
+COMPONENTS 	= cpu/ memory/
 
-OUTPUT_DIR = ./../build/AmberOS/System
-OUTPUT_FILE = amberkrn.elf
+OUTPUT_DIR 	= $(PROJECT_DIR)/build/AmberOS/System
+OUTPUT_FILE = $(OUTPUT_DIR)/amberkrn.elf
 
-OBJ_DIR = ./../obj
-OBJ_FILES = amberkrn.o
+OBJ_DIR 	= $(PROJECT_DIR)/obj/kernel
+OBJ_FILE 	= $(OBJ_DIR)/amberkrn.o
+OBJ_FILES	= $(wildcard $(OBJ_DIR)/*.o)
 
-CC_FLAGS = -m64 -ffreestanding -I../include
-LD_FLAGS = -T amberkrn.ld -static -Bsymbolic -nostdlib
+LD_FLAGS 	= -T amberkrn.ld -static -Bsymbolic -nostdlib
 
-build: $(COMPONENTS) $(OBJ_FILES)
-	@echo "[Linking $^ --> $@]"
-	@mkdir -p $(OUTPUT_DIR)
-	@ld $(LD_FLAGS) $(OBJ_DIR)/*.o -o $(OUTPUT_DIR)/$(OUTPUT_FILE)
+build: $(OUTPUT_FILE)
+	@echo "$(COLOR_OK)[KERNEL compiled and linked]$(COLOR_RESET)"
+
+$(OUTPUT_FILE): $(COMPONENTS) $(OBJ_FILE)
+	@echo "[Linking $(notdir $(OBJ_FILES)) --> $(@F)]"
+	@mkdir -p $(@D)
+	@$(LD) $(LD_FLAGS) $(OBJ_FILES) -o $(OUTPUT_FILE)
 	@rm -rf *.o
 
-%.o: %.cpp
-	@echo "[Compiling $^ --> $@]"
-	@g++ $(CC_FLAGS) -c $^ -o $(OBJ_DIR)/$@
+$(OBJ_DIR)/%.o: %.cpp
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
+	@$(CXX) $(CXX_FLAGS) -c $^ -o $@
 
 $(COMPONENTS): FORCE
 	@$(MAKE) -C $(@D) --no-print-directory

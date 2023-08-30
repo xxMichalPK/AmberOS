@@ -5,13 +5,14 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-OBJ_DIR = ./../../obj
-OBJ_FILES = memcpy.o
-CC_FLAGS = -m64 -ffreestanding -I../../include -Ofast
+OBJ_DIR 	= $(PROJECT_DIR)/obj/kernel
+
+OBJ_FILES 	= $(OBJ_DIR)/memcpy.o
 
 build: $(OBJ_FILES)
+	@echo "$(COLOR_OK)[MEMORY kernel components compiled]$(COLOR_RESET)"
 
-%.o: %.cpp
-	@echo "[Compiling $^ --> $@]"
-	@mkdir -p $(OBJ_DIR)
-	@g++ $(CC_FLAGS) -c $^ -o $(OBJ_DIR)/$@
+$(OBJ_DIR)/%.o: %.cpp
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
+	@$(CXX) $(CXX_FLAGS) -c $^ -o $@

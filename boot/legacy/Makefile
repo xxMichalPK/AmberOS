@@ -5,11 +5,11 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-LEGACY_MAKEFILES = mbr/Makefile \
-				   loader/Makefile \
-				   EXT2/Makefile \
-				   FAT32/Makefile \
-				   ISO9660/Makefile
+LEGACY_MAKEFILES = 	mbr/Makefile \
+					ISO9660/Makefile \
+					FAT32/Makefile \
+					EXT2/Makefile \
+				   	loader/Makefile
 
 build: $(LEGACY_MAKEFILES)
 

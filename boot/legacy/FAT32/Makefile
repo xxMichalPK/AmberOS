@@ -6,4 +6,4 @@
 # */
 
 build:
-	@echo "[FAT32 boot support comming soon...]"
+	@echo "$(COLOR_INFO)[FAT32 boot support comming soon]$(COLOR_RESET)"

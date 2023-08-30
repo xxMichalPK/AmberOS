@@ -5,12 +5,13 @@
 #  * Written by Michał Pazurek <michal10.05.pk@gmail.com>
 # */
 
-OUTPUT_DIR = ./../../../build/boot
-OUTPUT_FILES = isoboot.bin
+OUTPUT_DIR = $(PROJECT_DIR)/build/boot
+OUTPUT_FILES = $(OUTPUT_DIR)/isoboot.bin
 
 build: $(OUTPUT_FILES)
+	@echo "$(COLOR_OK)[ISO9660 loader files compiled]$(COLOR_RESET)"
 
-%.bin: %.asm
-	@echo "[Compiling $^ --> $@]"
-	@mkdir -p $(OUTPUT_DIR)
-	@nasm -f bin $^ -o $(OUTPUT_DIR)/$@
+$(OUTPUT_DIR)/%.bin: %.asm
+	@echo "[Compiling $(^F) --> $(@F)]"
+	@mkdir -p $(@D)
+	@nasm -f bin $^ -o $@
