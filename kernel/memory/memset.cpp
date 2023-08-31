@@ -11,9 +11,9 @@ inline void *__memsetStandard(void *dst, int c, size_t len) {
     __asm__ __volatile__ ("0:\n\t\
                                movb %%sil, (%%rdi);\n\t\
                                inc %%rdi;\n\t\
-                               dec %%rcx;\n\t\
+                               dec %%rdx;\n\t\
                                jnz 0b;\n\t\
-                          " :: "c"(len) : "rdi", "rsi", "memory");
+                          " :: "D"(dst), "S"(c), "d"(len) : "memory");
     
     return dst;
 }
@@ -87,7 +87,7 @@ inline void *__memsetSSE(void *dst, int c, size_t len) {
                        "5:\n\t"
                         
                         // Set the clobbered registers
-                        ::: "rax", "rcx", "rdx", "rdi", "rsi", "memory");
+                        :: "D"(dst), "S"(c), "d"(len) : "rax", "rcx", "memory");
 
     return dst;
 }
@@ -162,7 +162,7 @@ inline void *__memsetAVX(void *dst, int c, size_t len) {
                        "5:\n\t"
                         
                         // Set the clobbered registers
-                        ::: "rax", "rcx", "rdx", "rdi", "rsi", "memory");
+                        :: "D"(dst), "S"(c), "d"(len) : "rax", "rcx", "memory");
 
     return dst;
 }
@@ -238,7 +238,7 @@ inline void *__memsetAVX512(void *dst, int c, size_t len) {
                        "5:\n\t"
                         
                         // Set the clobbered registers
-                        ::: "rax", "rcx", "rdx", "rdi", "rsi", "memory");
+                        :: "D"(dst), "S"(c), "d"(len) : "rax", "rcx", "memory");
 
     return dst;
 }

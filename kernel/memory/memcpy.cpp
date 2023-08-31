@@ -24,7 +24,7 @@ inline void *__memcpyStandard(void *dst, void *src, size_t len) {
                                jz 1f;\n\t\
                                rep movsb;\n\t\
                            \n\t\
-                           1:" ::: "memory");
+                           1:" :: "D"(dst), "S"(src), "d"(len) : "rcx", "memory");
 
     return dst;
 }
@@ -96,8 +96,8 @@ inline void *__memcpySSE(void *dst, void *src, size_t len) {
                               addq $256, %%rdi;\n\t\
                               decq %%rcx;\n\t\
                               jnz 0b;\n\t\
-                           " : "=d"(remaining), "=D"(updatedDst), "=S"(updatedSrc)
-                             : "c"(len), "D"(dst), "S"(src));
+                           " : "=D"(updatedDst), "=S"(updatedSrc), "=d"(remaining)
+                             : "D"(dst), "S"(src), "c"(len));
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
@@ -183,8 +183,8 @@ inline void *__memcpyAVX(void *dst, void *src, size_t len) {
                               addq $512, %%rdi;\n\t\
                               decq %%rcx;\n\t\
                               jnz 0b;\n\t\
-                           " : "=d"(remaining), "=S"(updatedSrc), "=D"(updatedDst)
-                             : "c"(len), "S"(src), "D"(dst));
+                           " : "=D"(updatedDst), "=S"(updatedSrc), "=d"(remaining)
+                             : "D"(dst), "S"(src), "c"(len));
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
@@ -274,8 +274,8 @@ inline void *__memcpyAVX512(void *dst, void *src, size_t len) {
                               addq $1024, %%rdi;\n\t\
                               decq %%rcx;\n\t\
                               jnz 0b;\n\t\
-                           " : "=d"(remaining), "=S"(updatedSrc), "=D"(updatedDst)
-                             : "c"(len), "S"(src), "D"(dst));
+                           " : "=D"(updatedDst), "=S"(updatedSrc), "=d"(remaining)
+                             : "D"(dst), "S"(src), "c"(len));
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
