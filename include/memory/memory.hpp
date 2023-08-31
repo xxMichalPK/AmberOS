@@ -5,5 +5,6 @@
 #include <cstddef>
 
 void *memcpy(void *dst, void *src, size_t len);
+void *memset(void *dst, int c, size_t len);
 
 #endif

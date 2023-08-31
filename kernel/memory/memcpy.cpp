@@ -2,6 +2,9 @@
 #include <cpu/avx.hpp>
 #include <cpu/ermsb.hpp>
 
+// Those functions are written in inline assembly to optimize performance
+// Input parameters are stored in this order: RDI, RSI, RDX, RCX, R8, R9, (additional parameters are stored in stack)
+
 // TODO:
 //   Check prefetch line size in cpuid and based on that size execute the prefetches
 //   in all the __memcpyXXX functions
@@ -9,24 +12,25 @@
 // All functions in this file (except the actual memcpy function) are inlined to speed up
 // the main memcpy function
 inline void *__memcpyStandard(void *dst, void *src, size_t len) {
-    __asm__ __volatile__ ("shrq $3, %%rcx;\n\t\
+    __asm__ __volatile__ ("movq %%rdx, %%rcx;\n\t\
+                           shrq $3, %%rcx;\n\t\
                            or %%rcx, %%rcx;\n\t\
                            jz 0f;\n\t\
                            rep movsq;\n\t\
                            \n\t\
                            0:\n\t\
                                movb %%dl, %%cl;\n\t\
-                               andb $0x07, %%cl;\n\t\
+                               andb $7, %%cl;\n\t\
                                jz 1f;\n\t\
                                rep movsb;\n\t\
                            \n\t\
-                           1:" :: "c"(len), "d"(len), "S"(src), "D"(dst));
+                           1:" ::: "memory");
 
     return dst;
 }
 
 inline void *__memcpyERMSB(void *dst, void *src, size_t len) {
-    __asm__ __volatile__ ("rep movsb" :: "c"(len), "D"(dst), "S"(src) : "memory");
+    __asm__ __volatile__ ("rep movsb" :: "c"(len) : "memory");
     return dst;
 }
 
@@ -266,8 +270,8 @@ inline void *__memcpyAVX512(void *dst, void *src, size_t len) {
                               vmovntdq %%zmm13, 832(%%rdi);\n\t\
                               vmovntdq %%zmm14, 896(%%rdi);\n\t\
                               vmovntdq %%zmm15, 960(%%rdi);\n\t\
-                              addq $512, %%rsi;\n\t\
-                              addq $512, %%rdi;\n\t\
+                              addq $1024, %%rsi;\n\t\
+                              addq $1024, %%rdi;\n\t\
                               decq %%rcx;\n\t\
                               jnz 0b;\n\t\
                            " : "=d"(remaining), "=S"(updatedSrc), "=D"(updatedDst)

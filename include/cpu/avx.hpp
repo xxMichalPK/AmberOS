@@ -17,6 +17,8 @@ namespace CPU::AVX {
     extern AVX_VERSION_t version;
     AMBER_STATUS Enable();
 
+    void Force512();
+
 }
 
 #endif

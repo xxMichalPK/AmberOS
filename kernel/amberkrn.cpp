@@ -14,17 +14,21 @@ __CDECL AMBER_STATUS AmberStartup(BootInfo_t *bootInfo) {
     // Enable AVX if supported
     CPU::AVX::Enable();
 
+    // Force AVX512 on Bochs emulator
+    // CPU::AVX::Force512();
+
     uint64_t sSize = bootInfo->framebuffer.vRes * bootInfo->framebuffer.hRes;
     uint8_t bpp = ((bootInfo->framebuffer.bitsPerPixel + 1) / 8);
 
     uint32_t color;
     while (true) {
-        for (uint64_t i = 0; i < sSize; i++) {
-            *(uint32_t*)(uintptr_t)(0x500000 + i * bpp) = color;
-        }
+        memset((void*)0x500000, color, sSize * bpp);
 
         memcpy((void*)bootInfo->framebuffer.base, (void*)0x500000, sSize * bpp);
-        color += 0xFF;
+        color += 0x01;
+        if (color >= 0xFF) {
+            color = 0x0;
+        }
     }
 
     for (;;);

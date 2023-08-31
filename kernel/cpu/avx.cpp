@@ -68,4 +68,20 @@ namespace CPU::AVX {
         return AMBER_SUCCESS;
     }
 
+    // This is a function that will be probably removed from the release versions. It's used to test
+    // AVX512 instruction set on Bochs, since it doesn't show support in the CPUID instruction, idk why
+    void Force512() {
+        __asm__ __volatile__ ("push %rax;\n\t\
+                                   push %rcx;\n\t\
+                                   push %rdx;\n\t\
+                                   xor %rcx, %rcx;\n\t\
+                                   xgetbv;\n\t\
+                                   or $0xE7, %eax;\n\t\
+                                   xsetbv;\n\t\
+                                   pop %rdx;\n\t\
+                                   pop %rcx;\n\t\
+                                   pop %rax;");
+            version = AVX512;
+    }
+
 }
