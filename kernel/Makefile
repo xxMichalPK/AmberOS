@@ -11,18 +11,21 @@ OUTPUT_DIR 	= $(PROJECT_DIR)/build/AmberOS/System
 OUTPUT_FILE = $(OUTPUT_DIR)/amberkrn.elf
 
 OBJ_DIR 	= $(PROJECT_DIR)/obj/kernel
-OBJ_FILE 	= $(OBJ_DIR)/amberkrn.o
-OBJ_FILES	= $(wildcard $(OBJ_DIR)/*.o)
+
+OBJ_FILES 	= $(OBJ_DIR)/amberkrn.o \
+			  $(OBJ_DIR)/dlloader.o
+
+ALL_OBJ_FILES	= $(wildcard $(OBJ_DIR)/*.o)
 
 LD_FLAGS 	= -T amberkrn.ld -static -Bsymbolic -nostdlib
 
 build: $(OUTPUT_FILE)
 	@echo "$(COLOR_OK)[KERNEL compiled and linked]$(COLOR_RESET)"
 
-$(OUTPUT_FILE): $(COMPONENTS) $(OBJ_FILE)
-	@echo "[Linking $(notdir $(OBJ_FILES)) --> $(@F)]"
+$(OUTPUT_FILE): $(COMPONENTS) $(OBJ_FILES)
+	@echo "[Linking $(notdir $(ALL_OBJ_FILES)) --> $(@F)]"
 	@mkdir -p $(@D)
-	@$(LD) $(LD_FLAGS) $(OBJ_FILES) -o $(OUTPUT_FILE)
+	@$(LD) $(LD_FLAGS) $(ALL_OBJ_FILES) -o $(OUTPUT_FILE)
 	@rm -rf *.o
 
 $(OBJ_DIR)/%.o: %.cpp
