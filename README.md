@@ -10,8 +10,8 @@ AmberOS is a project aimed at developing a fully functional x86_64 Operating Sys
 
 - ### [Introduction](https://github.com/xxMichalPK/AmberOS/tree/dev#introduction-1) ###
 - ### [Features](https://github.com/xxMichalPK/AmberOS/tree/dev#features-1) ###
-    - [Bootloader](https://github.com/xxMichalPK/AmberOS/tree/dev#bootloader-1)
-    - [Kernel](https://github.com/xxMichalPK/AmberOS/tree/dev#kernel-1)
+    - [Bootloader](https://github.com/xxMichalPK/AmberOS/tree/dev#bootloader)
+    - [Kernel](https://github.com/xxMichalPK/AmberOS/tree/dev#kernel)
 - ### [ToDo List](https://github.com/xxMichalPK/AmberOS/tree/dev#todo-list-1) ###
 - ### [Building](https://github.com/xxMichalPK/AmberOS/tree/dev#building-1) ###
 - ### [License](https://github.com/xxMichalPK/AmberOS/tree/dev#license-1) ###
