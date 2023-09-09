@@ -6,17 +6,18 @@
 # */
 
 # OS Name variables
-OS_NAME = AmberOS
-OS_ARCH = x86_64
-OS_VERSION = 0.1a
+OS_NAME 	= AmberOS
+OS_ARCH 	= x86_64
+OS_VERSION 	= 0.1a
 OS_CODENAME = Tyro
 
 # Useful directories
-LEGACY_BOOT_DIR = boot/legacy/
-UEFI_BOOT_DIR = boot/UEFI/
-KERNEL_DIR = kernel/
-export PROJECT_DIR = $(CURDIR)
-export INCLUDE_DIR = $(PROJECT_DIR)/include
+LEGACY_BOOT_DIR 	= boot/legacy/
+UEFI_BOOT_DIR 		= boot/UEFI/
+KERNEL_DIR 			= kernel/
+
+export PROJECT_DIR 	= $(CURDIR)
+export INCLUDE_DIR 	= $(PROJECT_DIR)/include
 
 # Build tools
 export CC	= gcc
@@ -24,9 +25,9 @@ export CXX	= g++
 export LD	= ld
 
 # Build flags
-export LOADER_CC_FLAGS = -m32 -ffreestanding -fno-PIC -fno-PIE -I$(INCLUDE_DIR)
-export CC_FLAGS = -m64 -ffreestanding -I$(INCLUDE_DIR)/
-export CXX_FLAGS = -m64 -ffreestanding -I$(INCLUDE_DIR)/
+export LOADER_CC_FLAGS 	= -m32 -ffreestanding -fno-PIC -fno-PIE -I$(INCLUDE_DIR)
+export CC_FLAGS 		= -m64 -ffreestanding -I$(INCLUDE_DIR)/
+export CXX_FLAGS 		= -m64 -ffreestanding -I$(INCLUDE_DIR)/
 
 # Message colors and cursor movements
 export CURSOR_UP	= \033[1F
@@ -36,14 +37,22 @@ export COLOR_INFO 	= \033[1;33m
 export COLOR_ERROR 	= \033[1;31m
 export COLOR_RESET 	= \033[22;0m
 
+# This variable is used to track all changes in the source files (For headers the project has to be rebuild)
+ALL_SOURCES = 	$(wildcard $(PROJECT_DIR)/**/*.c) \
+				$(wildcard $(PROJECT_DIR)/**/*.cpp) \
+				$(wildcard $(PROJECT_DIR)/**/*.asm) \
+				$(wildcard $(PROJECT_DIR)/**/*.S) \
+				$(wildcard $(PROJECT_DIR)/**/*.inc)
+
 # Output files
 ISO_FILE = $(OS_NAME)-$(OS_CODENAME)-$(OS_ARCH).iso
 
 ISO: $(ISO_FILE)
 	@echo "$(COLOR_OK)[ISO creation finished]$(COLOR_RESET)"
 
-$(ISO_FILE): build_legacy_boot build_uefi_boot build_kernel
-ifeq (,$(wildcard ./$(ISO_FILE)))
+$(ISO_FILE): $(ALL_SOURCES)
+	@$(MAKE) build_legacy_boot build_uefi_boot build_kernel --no-print-directory
+
 	@echo "$(COLOR_INFO)[Preparing files for ISO creation...]$(COLOR_RESET)"
 	@mkdir -p iso iso/AmberOS/SysConfig/ \
 		> /dev/null 2>&1 || \
@@ -97,7 +106,6 @@ ifeq (,$(wildcard ./$(ISO_FILE)))
 			{ echo "$(MSG_REPLACE)$(COLOR_ERROR)[Failed to create ISO file]$(COLOR_RESET)" && exit 1; }
 	
 	@echo "$(MSG_REPLACE)$(CURSOR_UP)"
-endif
 
 build_legacy_boot:
 	@$(MAKE) -C $(LEGACY_BOOT_DIR) --no-print-directory
