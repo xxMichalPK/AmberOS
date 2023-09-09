@@ -37,10 +37,10 @@ inline void *__memcpyERMSB(void *dst, void *src, size_t len) {
 inline void *__memcpySSE(void *dst, void *src, size_t len) {
     // Before copying check if the size is greater than 256bytes and then if the addresses are aligned to 16bytes (size of SSE registers). 
     // If not, unfortunately we can't use SSE
-    if (len < 256 || (((uintptr_t)dst ^ (uintptr_t)src) & 15)) {
+    if (len < 256 || ((uintptr_t)dst & 15) || ((uintptr_t)src & 15)) {
         switch (CPU::ERMSB::support) {
-            case  CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
-            case  CPU::ERMSB::NO_SUPPORT: return __memcpyStandard(dst, src, len);
+            case CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
+            default: return __memcpyStandard(dst, src, len);
         }
     }
 
@@ -101,8 +101,8 @@ inline void *__memcpySSE(void *dst, void *src, size_t len) {
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
-            case  CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
-            case  CPU::ERMSB::NO_SUPPORT: __memcpyStandard(updatedDst, updatedSrc, remaining);
+            case CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
+            default: __memcpyStandard(updatedDst, updatedSrc, remaining);
         }
     }
 
@@ -112,11 +112,11 @@ inline void *__memcpySSE(void *dst, void *src, size_t len) {
 inline void *__memcpyAVX(void *dst, void *src, size_t len) {
     // Before copying check if the size is greater than 512bytes and then if the addresses are aligned to 32bytes (size of AVX registers). 
     // If not, check 16byte alignment. If they are 16byte aligned, use SSE instructions.
-    if (len < 512 || (((uintptr_t)dst ^ (uintptr_t)src) & 31)) {
-        if (len < 256 || (((uintptr_t)dst ^ (uintptr_t)src) & 15)) {
+    if (len < 512 || ((uintptr_t)dst & 31) || ((uintptr_t)src & 31)) {
+        if (len < 256 || ((uintptr_t)dst & 15) || ((uintptr_t)src & 15)) {
             switch (CPU::ERMSB::support) {
-                case  CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
-                case  CPU::ERMSB::NO_SUPPORT: return __memcpyStandard(dst, src, len);
+                case CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
+                default: return __memcpyStandard(dst, src, len);
             }
         }
 
@@ -188,8 +188,8 @@ inline void *__memcpyAVX(void *dst, void *src, size_t len) {
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
-            case  CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
-            case  CPU::ERMSB::NO_SUPPORT: __memcpyStandard(updatedDst, updatedSrc, remaining);
+            case CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
+            default: __memcpyStandard(updatedDst, updatedSrc, remaining);
         }
     }
 
@@ -199,12 +199,12 @@ inline void *__memcpyAVX(void *dst, void *src, size_t len) {
 inline void *__memcpyAVX512(void *dst, void *src, size_t len) {
     // Before copying check if the size is greater than 1024bytes and then if the addresses are aligned to 64bytes (size of AVX512 registers). 
     // If not, check 32byte alignment. If they are 32byte aligned, use AVX instructions, if not, check SSE requirements and proceed copying.
-    if (len < 1024 || (((uintptr_t)dst ^ (uintptr_t)src) & 63)) {
-        if (len < 512 || (((uintptr_t)dst ^ (uintptr_t)src) & 31)) {
-            if (len < 256 || (((uintptr_t)dst ^ (uintptr_t)src) & 15)) {
+    if (len < 1024 || ((uintptr_t)dst & 63) || ((uintptr_t)src & 63)) {
+        if (len < 512 || ((uintptr_t)dst & 31) || ((uintptr_t)src & 31)) {
+            if (len < 256 || ((uintptr_t)dst & 15) || ((uintptr_t)src & 15)) {
                 switch (CPU::ERMSB::support) {
-                    case  CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
-                    case  CPU::ERMSB::NO_SUPPORT: return __memcpyStandard(dst, src, len);
+                    case CPU::ERMSB::ERMSB_SUPPORT: return __memcpyERMSB(dst, src, len);
+                    default: return __memcpyStandard(dst, src, len);
                 }
             }
 
@@ -279,8 +279,8 @@ inline void *__memcpyAVX512(void *dst, void *src, size_t len) {
 
     if (remaining) {
         switch (CPU::ERMSB::support) {
-            case  CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
-            case  CPU::ERMSB::NO_SUPPORT: __memcpyStandard(updatedDst, updatedSrc, remaining);
+            case CPU::ERMSB::ERMSB_SUPPORT: __memcpyERMSB(updatedDst, updatedSrc, remaining);
+            default: __memcpyStandard(updatedDst, updatedSrc, remaining);
         }
     }
 

@@ -8,7 +8,8 @@
 OBJ_DIR 	= $(PROJECT_DIR)/obj/kernel
 
 OBJ_FILES 	= $(OBJ_DIR)/memcpy.o \
-			  $(OBJ_DIR)/memset.o
+			  $(OBJ_DIR)/memset.o \
+			  $(OBJ_DIR)/memcmp.o
 
 build: $(OBJ_FILES)
 	@echo "$(COLOR_OK)[MEMORY kernel components compiled]$(COLOR_RESET)"
