@@ -10,7 +10,9 @@ COLOR_RESET="\033[22;0m";
 
 PACKAGE_MANAGER="";
 INSTALL_COMMAND="";
-REQUIREMENTS=("nasm" "gcc" "g++" "gcc-multilib" "g++-multilib" "binutils" "mtools" "dosfstools" "e2fsprogs" "e2tools" "xorriso" "gnu-efi");
+CHECK_COMMAND="";
+REQUIREMENTS=("make" "nasm" "gcc" "g++" "gcc-multilib" "g++-multilib" "binutils" "mtools" "dosfstools" "e2fsprogs" "e2tools" "xorriso" "gnu-efi");
+EXCLUDES=("g++" "gcc-multilib" "g++-multilib"); # Those are the packages that are already included in pacman so exclude them
 MISSING=();
 
 echo "AmberOS project configurator"
@@ -27,44 +29,63 @@ if [ -x "$(command -v apt-get)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - apt-get]"$COLOR_RESET";
     PACKAGE_MANAGER="apt-get";
     INSTALL_COMMAND="apt install";
+    CHECK_COMMAND="dpkg -l";
 elif [ -x "$(command -v yum)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - yum]"$COLOR_RESET";
     PACKAGE_MANAGER="yum";
     INSTALL_COMMAND="yum install";
+    CHECK_COMMAND="yum list installed";
 elif [ -x "$(command -v dnf)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - dnf]"$COLOR_RESET";
     PACKAGE_MANAGER="dnf";
     INSTALL_COMMAND="dnf install";
+    CHECK_COMMAND="dnf list installed";
 elif [ -x "$(command -v zypper)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - zypper]"$COLOR_RESET";
     PACKAGE_MANAGER="zypper";
     INSTALL_COMMAND="zypper install";
+    CHECK_COMMAND="zypper se --installed-only";
 elif [ -x "$(command -v apk)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - apk]"$COLOR_RESET";
     PACKAGE_MANAGER="apk";
     INSTALL_COMMAND="apk add --no-cache";
+    CHECK_COMMAND="apk info";
 elif [ -x "$(command -v pacman)" ]; then
     echo -e "$MSG_REPLACE""$COLOR_OK"[Found package manager - pacman]"$COLOR_RESET";
     PACKAGE_MANAGER="pacman";
     INSTALL_COMMAND="pacman -Ss";
+    CHECK_COMMAND="pacman -Qs";
 else
     echo -e "$MSG_REPLACE""$COLOR_ERROR"[Couldn\'t find a supported package manager]"$COLOR_RESET";
     exit 1;
 fi
 
 # Requirement check loop
+exclude=0;
 for req in ${REQUIREMENTS[@]}; do
-    echo -e "$COLOR_INFO"[Checking for $req...]"$COLOR_RESET";
-
-    if [ "$PACKAGE_MANAGER" == "apt-get" ]; then
-        if dpkg -l | grep "ii  $req" > /dev/null 2>&1; then
-            echo -e "$MSG_REPLACE""$COLOR_OK"[Checking for $req - Installed]"$COLOR_RESET";
-        else
-            echo -e "$MSG_REPLACE""$COLOR_ERROR"[Checking for $req - Missing]"$COLOR_RESET";
-            MISSING+=($req)
-        fi
-        continue;
+    if [ "$PACKAGE_MANAGER" == "pacman" ]; then
+        for ex in "${EXCLUDES[@]}"; do
+            if [ "$ex" == "$req" ]; then
+                exclude=1;
+                break;  # Exit the loop if the value is found in EXCLUDES
+            fi
+        done
     fi
+
+    if [ "$exclude" -eq 1 ]; then
+        exclude=0;
+        continue;
+    fi;
+
+    echo -e "$COLOR_INFO"[Checking for $req...]"$COLOR_RESET";
+    if $CHECK_COMMAND $req > /dev/null 2>&1; then
+        echo -e "$MSG_REPLACE""$COLOR_OK"[Checking for $req - Installed]"$COLOR_RESET";
+    else
+        echo -e "$MSG_REPLACE""$COLOR_ERROR"[Checking for $req - Missing]"$COLOR_RESET";
+        MISSING+=($req)
+    fi;
+
+    continue;
 done;
 
 # Check if there are missing packages and prompt the user for installation confirmation
@@ -73,9 +94,15 @@ if [ ${#MISSING[@]} -ne 0 ]; then
     
     # Check if the input is "y" or "n"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        NEEDED_PACKAGES="";
         for req in ${MISSING[@]}; do
-            $INSTALL_COMMAND $req;
+            NEEDED_PACKAGES="$NEEDED_PACKAGES $req";
         done;
+
+        # Remove the leading space
+        NEEDED_PACKAGES="${NEEDED_PACKAGES# }";
+
+        $INSTALL_COMMAND $NEEDED_PACKAGES;
     elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
         exit 0;
     else
