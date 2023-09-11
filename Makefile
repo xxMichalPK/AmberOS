@@ -8,8 +8,13 @@
 # OS Name variables
 OS_NAME 	= AmberOS
 OS_ARCH 	= x86_64
-OS_VERSION 	= 0.1a
 OS_CODENAME = Tyro
+
+# OS Version variables
+OS_MAJOR_V	= 0
+OS_MINOR_V	= 1a
+FEATURE_CODE= 3		# Basic kernel
+OS_VERSION 	= $(OS_MAJOR_V).$(OS_MINOR_V)
 
 # Useful directories
 LEGACY_BOOT_DIR 	= boot/legacy/
@@ -52,6 +57,7 @@ ISO: $(ISO_FILE)
 
 $(ISO_FILE): $(ALL_SOURCES)
 	@$(MAKE) build_legacy_boot build_uefi_boot build_kernel --no-print-directory
+	@./tools/buildnum-update major=$(OS_MAJOR_V) minor=$(OS_MINOR_V) feature=$(FEATURE_CODE)
 
 	@echo "$(COLOR_INFO)[Preparing files for ISO creation...]$(COLOR_RESET)"
 	@mkdir -p iso iso/AmberOS/SysConfig/ \

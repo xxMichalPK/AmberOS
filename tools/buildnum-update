@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Initialize variables with default values
+major_version=0
+minor_version=0
+feature_code=000
+build_number=000
+
+# Check if arguments are provided
+if [ $# -gt 0 ]; then
+    # Parse arguments
+    for arg in "$@"; do
+        case "$arg" in
+            major=*)
+                major_version="${arg#major=}"
+                ;;
+            minor=*)
+                minor_version="${arg#minor=}"
+                ;;
+            feature=*)
+                feature_code_raw="${arg#feature=}"
+                # Pad feature code with zeros to ensure it's 3 digits
+                feature_code=$(printf "%03d" "$feature_code_raw")
+                ;;
+            *)
+                echo "Invalid argument: $arg"
+                exit 1
+                ;;
+        esac
+    done
+fi
+
+# Read the current build string from build.inf
+if [ -f "build.inf" ]; then
+    current_version=$(cat build.inf)
+    prev_major=$(echo "$current_version" | awk '{print $2}' | cut -d'.' -f1);
+    prev_minor=$(echo "$current_version" | awk '{print $2}' | cut -d'.' -f2);
+    prev_feature=$(echo "$current_version" | awk '{print $2}' | cut -d'.' -f3);
+    build_number=$(echo "$current_version" | awk '{print $2}' | cut -d'.' -f4 | sed 's/^0*//');
+
+    if [ "$prev_major" == "$major_version" ] && [ "$prev_minor" == "$minor_version" ] && [ "$prev_feature" == "$feature_code" ]; then
+        # Increment the build number
+        build_number=$((build_number + 1));
+    else
+        # Reset the build number to 0 if any of the arguments change
+        build_number=1;
+    fi
+else
+    build_number=1;
+fi
+
+# Format the new version string
+new_version="Build $major_version.$minor_version.$feature_code.$(printf "%03d" "$build_number")";
+
+# Update build.inf with the new version
+echo "$new_version" > build.inf;
+
+# Print the new version
+echo "$new_version"
