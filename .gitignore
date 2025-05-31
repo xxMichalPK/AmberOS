@@ -1,2 +1,29 @@
+# Ignore VS Code configuration files
+/.vscode/
+/.vscode/*
+
 # Ignore all files in the notes folder
-notes/**.**
+/notes/
+/notes/*
+
+# Ignore build directories
+/build/
+/build/*
+/obj/
+/obj/*
+
+# Ignore the ISO directory needed for ISO file creation
+/iso/
+/iso/*
+
+# Ignore all iso files
+/*.iso
+
+# Ignore files used for debugging
+/*.bxrc
+/bx_enh_dbg.ini
+/debug.bat
+
+# Ignore testing files
+/tests/
+/tests/*
